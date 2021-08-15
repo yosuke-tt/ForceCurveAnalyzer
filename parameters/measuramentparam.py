@@ -4,8 +4,8 @@ import re
 from dataclasses import dataclass
 
 
-
-class MeasurantParameter:
+@dataclass
+class MeasuramentParameters:
     config_dict_default: dict = {'zig': False, 
                                  '帰りデータ点': 12000, 
                                  '行きデータ点': 12000,

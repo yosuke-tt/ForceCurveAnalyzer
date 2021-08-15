@@ -1,0 +1,2 @@
+class DataShapeIsNotSquare(ValueError):
+    pass
