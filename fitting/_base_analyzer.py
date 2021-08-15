@@ -25,14 +25,14 @@ class FCBaseProcessor(metaclass=ABCMeta):
     def __init__(self,
                  meas_dict: dict,
                  iofilePathes: IOFilePathes,
-                 afmParameters: AFMParameters = AFMParameters(),
+                 afmParam: AFMParameters = AFMParameters(),
                  logfile: str = 'fitlog.log') -> None:
 
         self.meas_dict:dict = meas_dict
-        self.iofilepathes : IOFilePathes = iofilePathes
-        self.afmParameters : AFMParameters= afmParameters
+        self.ioPathes : IOFilePathes = iofilePathes
+        self.afmParam : AFMParameters= afmParam
         
-        self.logger = self.setup_logger(self.iofilepathes.save_name2path(logfile))
+        self.logger = self.setup_logger(self.ioPathes.save_name2path(logfile))
 
         
     @abstractmethod

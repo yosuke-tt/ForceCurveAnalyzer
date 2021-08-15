@@ -17,11 +17,11 @@ from ._base_analyzer import FCBaseProcessor
 from ..parameters import *
 
 class FitFC2Ting(FCBaseProcessor):
-    def __init__(self,iofilePathes, meas_dict, afmParameters=AFMParameters(), norm=50):
+    def __init__(self,iofilePathes, meas_dict, afmParam=AFMParameters(), norm=50):
         # 測定FC時
         super().__init__(meas_dict=meas_dict,
                          iofilePathes=iofilePathes,
-                         afmParameters=afmParameters)
+                         afmParam=afmParam)
         
         self.norm = norm
         self.Hertz = True
@@ -53,11 +53,11 @@ class FitFC2Ting(FCBaseProcessor):
             ヘルツモデルの球の定数。
         """
         if self.Hertz:
-            model_param = (4 * self.afmParameters.bead_radias**0.5) \
-                                / (3 * (1 - self.afmParameters.poission_ratio**2))
+            model_param = (4 * self.afmParam.bead_radias**0.5) \
+                                / (3 * (1 - self.afmParam.poission_ratio**2))
         else:
-            model_param = (2 * self.afmParameters.tan_theta) \
-                            / (np.pi * (1 - self.afmParameters.poission_ratio**2))
+            model_param = (2 * self.afmParam.tan_theta) \
+                            / (np.pi * (1 - self.afmParam.poission_ratio**2))
         return model_param
 
     def base2zero(self, delta_app, delta_ret, force_app, force_ret, contact, dim=1, ret_baseline="app", is_plot=True):
