@@ -15,6 +15,7 @@ rcParams['font.family'] = 'sans-serif'
 from ._base_analyzer import FCBaseProcessor
 
 from ..parameters import *
+from ..utils import TimeKeeper
 
 class FitFC2Ting(FCBaseProcessor):
     def __init__(self,iofilePathes, meas_dict, afmParam=AFMParameters(), norm=50):
@@ -69,7 +70,6 @@ class FitFC2Ting(FCBaseProcessor):
             force_ret_base = np.array([fcr - fca[int(c)] for fca, fcr,
                                       c in zip(force_app, force_ret, contact)], dtype=object)
             return force_app_base, force_ret_base
-
         if ret_baseline == "ret":
             ret_base_coeffs = np.array([self.linefit(d[rc:][::-1], f[rc:][::-1], cp=0, d=dim)[1]
                                         if rc < 19996 else [0, 0, 0] for d, f, rc in zip(delta_ret, force_ret, ret_contact)])
