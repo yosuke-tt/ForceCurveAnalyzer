@@ -242,6 +242,28 @@ class ContactPoint(FCBaseProcessor):
         if isinstance(self.line_fitted_data, bool) or isinstance(self.cross_cp, bool):
             self.contact_search(delta_app, force_app, cp_pre)
         return self.line_fitted_data, self.cross_cp
+    
+    @staticmethod
+    def set_cp(cls,
+               app_data: np.ndarray,
+               cp      : list):
+        """
+        コンタクトポイントを基準にしたデータに変換する。
+
+        Parameters
+        ----------
+        app_data : array_like
+            アプローチ部分のデータ
+        cp : array_like
+            コンタクトポイントのデータ
+        Returns
+        -------
+        app_data:np.ndarray
+            コンタクトポイントを基準にしたアプローチ部分のデータ
+        """
+        data_cp = np.array([d[cp:]-d[cp] for d, cp in zip(app_data, cp)])
+        return data_cp
+
 
     def plot_contact(
             self,

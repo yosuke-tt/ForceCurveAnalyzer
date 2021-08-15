@@ -119,28 +119,5 @@ class FCBaseProcessor(metaclass=ABCMeta):
             else:
                 return [*coeffs]
 
-    def set_cp(self, 
-               app_data: np.ndarray, 
-               cp      : list):
-        #TODO: メゾッドの場所考える。
-        """
-        コンタクトポイントを基準にしたデータに変換する。
 
-        Parameters
-        ----------
-        app_data : array_like
-            アプローチ部分のデータ
-        cp : array_like
-            コンタクトポイントのデータ
-        Returns
-        -------
-        app_data:np.ndarray
-            コンタクトポイントを基準にしたアプローチ部分のデータ
-        data_cp:np.ndarray
-            コンタクトポイントの位置でのデータ
-        """
-        data_cp = np.array([d[cp]
-                           for d, cp in zip(app_data, cp)]).reshape(-1, 1)
-        app_data -= delta_cp
-        return app_data, data_cp
 
