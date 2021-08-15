@@ -11,15 +11,17 @@ from ._base_analyzer import *
 
 class ContactPoint(FCBaseProcessor):
     def __init__(self,
-                 config_dict: dict,
+                 meas_dict: dict,
+                 iofilePathes: IOFilePathes,
+                 afmParam: AFMParameters = AFMParameters(),
                  cp_th: float = 0.1,
                  num_th: int = 1000,
                  fm_div: float = 1e-11,
                  save_path: str = "./",
                  data_path: str = "",
                  dist_basecp: int = 1000) -> None:
-        super().__init__(save_path=save_path, data_path=data_path, config_dict=config_dict)
-        # ToDo config_dict=>めんどい
+        super().__init__(meas_dict=meas_dict, iofilePathes=iofilePathes, afmParam=afmParam)
+
         self.cp_th = cp_th
         self.num_th = num_th
         self.fm_div = fm_div

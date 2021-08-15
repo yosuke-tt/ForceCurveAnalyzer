@@ -11,9 +11,9 @@ import logging
 import logging.handlers
 from logging import getLogger, Formatter, FileHandler, DEBUG, INFO
 
-from ..parameters.afmparam import AFMParameters
-from ..parameters.iofilepath import IOFilePathes
-from ..parameters.measurament import MeasurantParameters
+from ..parameters import (AFMParameters,
+                          IOFilePathes)
+
 # config_dict = {'ystep': 20, 'xstep': 20, 'xlength': 3e-06, 'ylength': 3e-06, 'zig': False}
 #?
 #!

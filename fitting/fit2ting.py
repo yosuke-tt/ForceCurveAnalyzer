@@ -125,8 +125,8 @@ class FitFC2Ting(FCBaseProcessor):
         if is_processed_img:
             self.plot_preprocessed_img()
 
-        np.save(self.savefile2savepath("delta_preprocessed"), self.delta_data)
-        np.save(self.savefile2savepath("force_preprocessed"), self.force_data)
+        np.save(self.ioPathes.save_name2path("delta_preprocessed"), self.delta_data)
+        np.save(self.ioPathes.save_name2path("force_preprocessed"), self.force_data)
 
         return delta_data, force_data
 
@@ -320,7 +320,7 @@ class FitFC2Ting(FCBaseProcessor):
         y_new_ = y[x > x_new_start]
         y_new = y_new_ - np.abs(base_mid)
 
-        os.makedirs(self.savefile2savepath("processed_img_for_ting"), exist_ok=True)
+        os.makedirs(self.ioPathes.save_name2path("processed_img_for_ting"), exist_ok=True)
         plt.plot(x, y, label="original")
         plt.plot(x_new, y_new, label="new")
         plt.plot(x_new, y_new, label="new")
@@ -328,14 +328,13 @@ class FitFC2Ting(FCBaseProcessor):
             x), label="base_mid", color="red")
         plt.hlines([0], xmin=np.min(x), xmax=np.max(x), label="0")
         plt.legend()
-        plt.savefig(self.savefile2savepath(
-            "processed_img_forting/{:>03}".format(idx)))
+        plt.savefig(self.ioPathes.save_name2path("processed_img_forting/{:>03}".format(idx)))
         plt.close()
         return x_new, y_new
 
     def change_data(self, file_path, all_data, change_data, idx, info):
 
-        with open(self.savefile2savepath("change_data_info.txt"), "a") as f:
+        with open(self.ioPathes.save_name2path("change_data_info.txt"), "a") as f:
             print(time.strftime("%Y%m%d %H:%M:%S"), file=f)
             print(file_path, file=f)
             print(idx, file=f)
@@ -343,15 +342,15 @@ class FitFC2Ting(FCBaseProcessor):
 
         pre_data_path = os.path.basename(file_path).split(".")[0] + "_pre.npy"
 
-        data_old = self.isfile_in_data_or_save(pre_data_path)
+        data_old = self.ioPathes.isfile_in_data_or_save(pre_data_path)
 
         if isinstance(data_old, bool):
             data_old = np.array([[idx, change_data]])
         else:
             data_old = np.vstack([data_old, [idx, change_data]])
-        np.save(self.savefile2savepath(pre_data_path), data_old)
+        np.save(self.ioPathes.save_name2path(pre_data_path), data_old)
         all_data[idx] = change_data
-        np.save(self.savefile2savepath(file_path), all_data)
+        np.save(self.ioPathes.save_name2path(file_path), all_data)
 
     def objective_ting(
             self,
@@ -498,31 +497,28 @@ class FitFC2Ting(FCBaseProcessor):
         """
         start = time.time()
 
-        delta_data = self.isfile_in_data_or_save("delta_preprocessed.npy")
-        force_data = self.isfile_in_data_or_save("force_preprocessed.npy")
+        delta_data = self.ioPathes.isfile_in_data_or_save("delta_preprocessed.npy")
+        force_data = self.ioPathes.isfile_in_data_or_save("force_preprocessed.npy")
 
         if True or (not isinstance(delta_data, np.ndarray) or not isinstance(force_data, np.ndarray)):
             delta_data, force_data = self.determine_data_range(
                 delta_app, delta_ret, force_app, force_ret, contact,)
 
-        if not os.path.isfile(os.path.join(self.save_path, "fit_result.npy")):
+        if not self.ioPathes.isfile_in_data_or_save("fit_result.npy")):
             self.logger.debug(f"Start fitting")
             result = self.fit_tingmodel(
                 delta_data, force_data, offset=offset, fit_index=fit_index)
             e1 = np.array([self.power_law_rheology_model(
                 xi=0, t=1, param=p) for p in result])
             np.save(os.path.join(self.save_path, "fit_result"), result)
-            np.save(self.savefile2savepath("e1"), e1)
-            np.save(self.savefile2savepath("residuals"), self.residuals)
-            np.save(self.savefile2savepath(
+            np.save(self.ioPathes.save_name2path("e1"), e1)
+            np.save(self.ioPathes.save_name2path("residuals"), self.residuals)
+            np.save(self.ioPathes.save_name2path(
                 "fitting_result"), self.fitting_result)
         elif isinstance(fit_index, (list, np.ndarray)):
-            result = np.load(os.path.join(
-                self.save_path, "fit_result.npy"), allow_pickle=True)
-            fitting_result = np.load(self.savefile2savepath(
-                "fitting_result.npy"), allow_pickle=True)
-            residuals = np.load(self.savefile2savepath(
-                "residuals"), allow_pickle=True)
+            result = np.load(self.ioPathes.save_name2path("fit_result.npy"), allow_pickle=True)
+            fitting_result = np.load(self.ioPathes.save_name2path("fitting_result.npy"), allow_pickle=True)
+            residuals = np.load(self.ioPathes.save_name2path("residuals"), allow_pickle=True)
             result_partial = self.fit_tingmodel(
                 delta_data, force_data, offset=offset, fit_index=fit_index)
             result[fit_index] = result_partial
@@ -530,15 +526,15 @@ class FitFC2Ting(FCBaseProcessor):
             residuals[fit_index] = self.residual
             e1 = np.array([self.power_law_rheology_model(
                 xi=0, t=1, param=p) for p in result])
-            np.save(os.path.join(self.save_path, "fit_result_changed"), result)
-            np.save(self.savefile2savepath(
+            np.save(self.ioPathes.save_name2path("fit_result_changed"), result)
+            np.save(self.ioPathes.save_name2path(
                 "fitting_result_changed"), fitting_result)
         else:
-            result = self.isfile_in_data_or_save("fit_result.npy")
-            e1 = self.isfile_in_data_or_save("e1.npy")
-            self.residuals = self.isfile_in_data_or_save("residuals.npy")
+            result = self.ioPathes.isfile_in_data_or_save("fit_result.npy")
+            e1 = self.ioPathes.isfile_in_data_or_save("e1.npy")
+            self.residuals = self.ioPathes.isfile_in_data_or_save("residuals.npy")
 
-        topo_contact = self.isfile_in_data_or_save("topo_contact.npy")
+        topo_contact = self.ioPathes.isfile_in_data_or_save("topo_contact.npy")
         self.plot_ting_summury(topo_contact, E, result, e1, self.residuals)
         end = time.time() - start
         self.logger.debug(f"Finished TIME :{end}")

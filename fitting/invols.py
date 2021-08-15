@@ -1,19 +1,23 @@
+import os
 from glob import glob
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 from ._base_analyzer import FCBaseProcessor
-
+from ..parameters import *
 
 class InvolsProcessing(FCBaseProcessor):
-    def __init__(self, config_dict, param_filename="params.txt", save_path="./data", zig=False, map_shape=False):
-        super().__init__(config_dict=config_dict,
-                         param_filename=param_filename, save_path=save_path)
-        self.app_length = self.config_dict["行きデータ点"]
+    def __init__(self,iofilePathes,
+                 meas_dict,
+                 afmParam=AFMParameters(),
+                 ):
+        super().__init__(meas_dict=meas_dict,
+                         iofilePathes=iofilePathes,
+                         afmParam=afmParam)
 
     def fit(self, def_app, z_app, complement_num):
-        if os.path.join(self.save_path, "invols.npy"):
+        if self.ioPathes.save_name2path( "invols.npy"):
 
             def_app_max = np.max(def_app, axis=1) * 0.99
             def_app_min = np.max(def_app, axis=1) * 0.1
@@ -26,19 +30,16 @@ class InvolsProcessing(FCBaseProcessor):
             plt.hist(invols, label="mean : {}\nmax : {}\nmin : {}".format(
                 invols_mean, np.max(invols), np.min(invols)))
             plt.legend()
-            plt.savefig(self.savefile2savepath("hist"))
+            plt.savefig(self.ioPathes.save_name2path("hist"))
             plt.close()
-            np.save(os.path.join(self.save_path, "invols_all.npy"), invols)
-            np.savetxt(os.path.join(self.save_path,
-                       "invols.txt"), [invols_mean])
+            np.save(self.ioPathes.save_name2path( "invols_all.npy"), invols)
+            np.savetxt(self.ioPathes.save_name2path("invols.txt"), [invols_mean])
 
         else:
             try:
-                invols_mean = np.loadtxt(os.path.join(
-                    self.save_path, "invols.txt"))[0]
+                invols_mean = np.loadtxt(self.ioPathes.save_name2path("invols.txt"))[0]
             except ValueError:
-                invols_mean = np.load(os.path.join(
-                    self.save_path, "invols.npy"))
+                invols_mean = np.load(self.ioPathes.save_name2path("invols.npy"))
             finally:
                 invols_mean = 200
         return invols_mean

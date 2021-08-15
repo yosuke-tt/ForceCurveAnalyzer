@@ -59,7 +59,8 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         """
         Hertzモデルから算出したE(t)
         """
-        p = (4 / 3) * (self.R**(1 / 2)) / (1 - self.v**2)
+        p = (4 / 3) * (self.afmParam.bead_radias**(1 / 2)) \
+                        / (1 - self.afmParam.poission_ratio**2)
         Et = force_sr / (p * delta_sr**(3 / 2))
         return Et
 
@@ -196,8 +197,8 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         self.sr_time_all = np.arange(0 + sr_time_offset, 1 + sr_time_offset, self.dt)
         tk = TimeKeeper(self.num_data)
 
-        if os.path.isfile(os.path.join(self.save_path, "complement_num.txt")):
-            complement_num = np.loadtxt(os.path.join(self.save_path, "complement_num.txt"))
+        if os.path.isfile(self.ioPathes.save_name2path("complement_num.txt")):
+            complement_num = np.loadtxt(self.ioPathes.save_name2path("complement_num.txt"))
         else:
             complement_num = []
         for i, et in enumerate(self.Et):
@@ -210,7 +211,7 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
                     try:
                         popt, pcov = curve_fit(self.power_low, self.sr_time, et, bounds=param_bounds)
                     except ValueError:
-                        with open(os.path.join(self.save_path, "valueErrorInsrFit.txt"), "a") as f:
+                        with open(self.ioPathes.save_name2path("valueErrorInsrFit.txt"), "a") as f:
                             print("\n\n{}".format(datetime.now()), file=f)
                             print(i, file=f)
                         popt = [0, 0, 0]
@@ -245,10 +246,10 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
             all_time = tk.timeshow(i)
 
             if is_fitting_img:
-                os.makedirs(os.path.join(self.save_path, "fit_sr"), exist_ok=True)
+                os.makedirs(self.ioPathes.save_name2path("fit_sr"), exist_ok=True)
                 self.sr_fitting_img(self.sr_time_all, y_pred, et_row, e0, e_inf, alpha, res_, i)
 
-        with open(self.savefile2savepath("fit_time"), "w") as f:
+        with open(self.ioPathes.save_name2path("fit_time"), "w") as f:
             print(all_time, file=f)
         return e_inf_res, e0_res, alpha_res, res, e_fit
 
@@ -260,15 +261,15 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         delta_sr = self.set_cp_delta_force(delta_sr,contact)
         force_sr = self.set_cp_delta_force(force_sr,contact)
 
-        np.save(os.path.join(self.save_path, "force_sr"), self.force_sr)
-        np.save(os.path.join(self.save_path, "delta_sr"), self.delta_sr)
+        np.save(self.ioPathes.save_name2path("force_sr"), self.force_sr)
+        np.save(self.ioPathes.save_name2path("delta_sr"), self.delta_sr)
 
-        self.Et = self.isfile_in_data_or_save("et.npy")
+        self.Et = self.ioPathes.isfile_in_data_or_save("et.npy")
         # self.hertz_Et()
         # np.save(os.path.join(self.save_path,"et"),self.Et)
         if not self.Et:
             self.Et = self.hertz_Et(delta_sr,force_sr)
-            np.save(os.path.join(self.save_path, "et"), self.Et)
+            np.save(self.ioPathes.save_name2path("et"), self.Et)
         self.logger.info("start fitting")
 
         e_inf_res, e0_res, alpha_res, res, e_fit = self.fit_power_low(sr_fit_dict)
@@ -284,7 +285,7 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         self.data_statistics(np.log10(ef2g), "log_E1_grad", stat_type=["map", "map_only", "hist", "plot"])
 
         end = time.time() - start
-        with open(os.path.join(self.save_path, "time.txt"), "w") as f:
+        with open(self.ioPathes.save_name2path("time.txt"), "w") as f:
             hour = int(end // 3600)
             minute = int((end - hour * 3600) // 60)
             second = (end - hour * 3600 - minute * 60) / 60
