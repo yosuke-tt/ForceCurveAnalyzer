@@ -9,10 +9,11 @@ import numpy as np
 
 import logging
 import logging.handlers
-from logging import getLogger, StreamHandler, Formatter, FileHandler, DEBUG, INFO
+from logging import getLogger, Formatter, FileHandler, DEBUG, INFO
 
-from ..parameters.AFMParameters import AFMParameters
-from ..parameters.FilePathDC import FilePathes
+from ..parameters.afmparam import AFMParameters
+from ..parameters.iofilepath import IOFilePathes
+from ..parameters.measurament import MeasurantParameters
 # config_dict = {'ystep': 20, 'xstep': 20, 'xlength': 3e-06, 'ylength': 3e-06, 'zig': False}
 #?
 #!
@@ -22,12 +23,18 @@ from ..parameters.FilePathDC import FilePathes
 
 class FCBaseProcessor(metaclass=ABCMeta):
     def __init__(self,
-                 MeasurantParameters: MeasurantParameters,
-                 FilePathes: FilePathes,
-                 AFMParameters: AFMParameters,
+                 measurament_param_dict: dict,
+                 iofilePathes: IOFilePathes,
+                 afmParameters: AFMParameters =AFMParameters() ,
                  logfile: str = 'fitlog.log') -> None:
-        self.logger = self.setup_logger(self.filepath.save_name2path(logfile))
 
+        self.measurament_param_dict:dict = measurament_param_dict
+        self.iofilepathes : IOFilePathes = iofilePathes
+        self.afmParameters : AFMParameters= afmParameters
+        
+        self.logger = self.setup_logger(self.iofilepathes.save_name2path(logfile))
+
+        
     @abstractmethod
     def fit():
         pass
@@ -49,14 +56,14 @@ class FCBaseProcessor(metaclass=ABCMeta):
         -------
         logger
         """
-        logger = logging.getLogger("logger")  # logger名loggerを取得
-        logger.setLevel(logging.DEBUG)  # loggerとしてはDEBUGで
+        logger = getLogger("logger")  # logger名loggerを取得
+        logger.setLevel(DEBUG)  # loggerとしてはDEBUGで
 
         fmt = '%(asctime)s  %(levelname)-8s  %(filename)-20s  %(lineno)-4s : %(message)s'
         # handler2を作成
-        handler = logging.FileHandler(filename=logfile)  # handler2はファイル出力
+        handler = FileHandler(filename=logfile)  # handler2はファイル出力
         handler.setLevel(DEBUG)  # handler2はLevel.WARN以上
-        handler.setFormatter(logging.Formatter(
+        handler.setFormatter(Formatter(
             fmt, datefmt='%Y/%m/%d %H:%M:%S'))
         # handler.setFormatter(logging.Formatter(fmt,datefmt='%Y/%m/%d %H:%M:%S'))
         if not logger.handlers:
@@ -115,6 +122,7 @@ class FCBaseProcessor(metaclass=ABCMeta):
     def set_cp(self, 
                app_data: np.ndarray, 
                cp      : list):
+        #TODO: メゾッドの場所考える。
         """
         コンタクトポイントを基準にしたデータに変換する。
 

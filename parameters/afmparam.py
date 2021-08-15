@@ -7,7 +7,7 @@ class AFMParameters:
     sampling_rate:  float = 5e4
     k:              float = 0.07
     poission_ratio: float = 0.5
-    radias_of_bead: float = 5e-6
+    bead_radias: float = 5e-6
     theta:          float = 17.5
     
     def __post_init__(self):

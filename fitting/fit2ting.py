@@ -14,20 +14,19 @@ rcParams['font.family'] = 'sans-serif'
 
 from ._base_analyzer import FCBaseProcessor
 
-
+from ..parameters import *
 
 class FitFC2Ting(FCBaseProcessor):
-    def __init__(self, config_dict, save_path="./data/", data_path=False, norm=50):
+    def __init__(self,iofilePathes, measurament_param_dict, afmParameters=AFMParameters(), norm=50):
         # 測定FC時
-        super().__init__(save_path=save_path, data_path=data_path, config_dict=config_dict)
-
-        self.Hertz = True
+        super().__init__(measurament_param_dict=measurament_param_dict,
+                         iofilePathes=iofilePathes,
+                         afmParameters=afmParameters)
+        
         self.norm = norm
-        self.map_shape = map_shape
-        self.tdash = 1 / self.sampling_rate
-        self.tstep = self.tdash
+        self.Hertz = True
+
         self.model_param = self.elastic_modelconstant()
-        os.makedirs(self.savefile2savepath("fit_img"), exist_ok=True)
         self.err = []
 
         self.change_x_data, self.change_y_data = [], []
@@ -54,11 +53,11 @@ class FitFC2Ting(FCBaseProcessor):
             ヘルツモデルの球の定数。
         """
         if self.Hertz:
-            model_param = (4 * self.R**0.5) / (3 * (1 - self.v**2))
-            theta = 17.5
-            tan_theta = np.tan(np.radians(theta))
+            model_param = (4 * self.afmParameters.bead_radias**0.5) \
+                                / (3 * (1 - self.afmParameters.poission_ratio**2))
         else:
-            model_param = (2 * tan_theta) / (np.pi * (1 - self.v**2))
+            model_param = (2 * self.afmParameters.tan_theta) \
+                            / (np.pi * (1 - self.afmParameters.poission_ratio**2))
         return model_param
 
     def base2zero(self, delta_app, delta_ret, force_app, force_ret, contact, dim=1, ret_baseline="app", is_plot=True):
