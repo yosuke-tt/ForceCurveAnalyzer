@@ -20,7 +20,7 @@ class MeasurantParameters:
         self.fc_path = fc_path
         self.config_overwite = config_overwite
 
-
+    @sataticmethod
     def str2goodtype(self, key: str, value: str) -> float | bool | list:
         if "時間" in key:
             time: int = int(value)
@@ -76,4 +76,3 @@ class MeasurantParameters:
                 config_dict = pickle.load(tf)
 
         return config_dict
-

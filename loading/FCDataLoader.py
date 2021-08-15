@@ -16,23 +16,23 @@ import matplotlib.pyplot as plt
 from scipy import interpolate
 
 
-from .FCBaseProcessor import FCBaseProcessor
-from .decorators import data_statistics_deco
-from .fc_helper import FCHelper
-from .AFMParameters import AFMParameters
+from ..fitting import FCBaseProcessor
+from ..utils import FCHelper, data_statistics_deco
+from ..parameters import AFMParameters, MeasurantParameters
 
 
-class FCDataLoader(FCBaseProcessor):
+class FCDataLoader():
     def __init__(self, 
-                 measurant_parameters: MeasurantParameters,
+                 meas_dict: MeasurantParameters,
                  file_pathes: FilePathes,
                  afm_parameters: AFMParameters,
                  invols=200,
                  resolution=10):
+
+        self.meas_dict :dict= meas_dict
         self.file_pathes: FilePathes = file_pathes
-        self.afm_prameters: AFMParameters = afm_prameters
-        self.measurant_parameters: MeasurantParameters = measurant_parameters
-        
+        self.afm_prameters: AFMParameters = afm_parameters
+
         self.invols = invols
         self.K = self.invols * 1e-9 * self.afm_prameters.k
         self.Hertz = True
@@ -177,6 +177,32 @@ class FCDataLoader(FCBaseProcessor):
 
         return force
 
+    def sep_srdata(self, data):
+        """
+        データをアプローチ、応力緩和、リトラクションのデータに分割する関数。
+        Parameters
+        ----------
+        data : arr_like
+            分割するデータ
+        Returns
+        -------
+        app_data, sr_data, ret_data:arr_like
+            アプローチ、応力緩和、リトラクションのデータ
+        """
+        app_data = data[:, :self.meas_dict["app_points"]]
+        sr_data =  data[:, self.meas_dict["app_points"]:self.meas_dict["app_points"] + self.meas_dict["sr_points"]]
+        ret_data = data[:, self.meas_dict["app_points"] + self.meas_dict["sr_points"]:]
+        return app_data, sr_data, ret_data
+
+    def sep_srdatas(self):
+        """
+        deflection, 押し込み量, zsensor, forceを応力緩和、リトラクションのデータに分割する関数。
+        """
+        self.def_app, self.def_sr, self.def_ret       = self.sep_srdata(self.deflection)
+        self.delta_app, self.delta_sr, self.delta_ret = self.sep_srdata(self.delta)
+        self.z_app, self.z_sr, self.z_ret             = self.sep_srdata(self.zsensor)
+        self.force_app, self.force_sr, self.force_ret = self.sep_srdata(self.force)
+
     @data_statistics_deco(ds_dict={"data_name": "topo_contact", "vmin": 0})
     def get_topo_img(self, zsensor, contact):
         """
@@ -265,15 +291,19 @@ class FCDataLoader(FCBaseProcessor):
             self.length_of_app = length[0]
             delta_app, delta_ret = self.split_app_ret(self.delta)
             force_app, force_ret = self.split_app_ret(self.force)
-            data = (delta_app, delta_ret, force_app, force_ret, self.zsensor)
+
+            data = ((delta_app, delta_ret), (force_app, force_ret), self.zsensor)
         elif fc_type == "inv":
             def_app, def_ret = self.split_app_ret(self.deflection)
             z_app, z_ret = self.split_app_ret(self.zsensor)
-            data = (def_app, def_ret, z_app, z_ret)
-
+            data = ((def_app, def_ret), (z_app, z_ret))
         elif fc_type == "sr":
             # 応力緩和用
-            pass
+            # def_app, def_sr, def_ret       = self.sep_srdata(self.deflection)
+            # z_app, z_sr, z_ret             = self.sep_srdata(self.zsensor)
+            delta_app, delta_sr, delta_ret = self.sep_srdata(self.delta)
+            force_app, force_sr, force_ret = self.sep_srdata(self.force)
+            data = ((delta_app, delta_sr, delta_ret), (force_app, force_sr, force_ret), self.zsensor)
         else:
             pass
         return data, self.complement_num

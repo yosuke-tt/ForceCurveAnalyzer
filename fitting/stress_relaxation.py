@@ -15,7 +15,9 @@ from ._base_analyzer import FCBaseProcessor
 
 from ..utils.fc_helper import *
 from ..utils.decorators import data_statistics_deco
+from ..utils import TimeKeeper
 
+from ..parameters import IOFilePathes, AFMParameters
 
 import japanize_matplotlib
 
@@ -28,61 +30,17 @@ import warnings
 
 
 class StressRelaxationPreprocessor(FCBaseProcessor):
-    def __init__(self, config_dict: dict, save_path: str = "./data", data_path: str = None, invols: float = 200):
-        super().__init__(save_path, data_path, config_dict)
+    def __init__(self,
+                meas_dict: dict,
+                iofilePathes: IOFilePathes,
+                afmParameters: AFMParameters =AFMParameters() ,
+                invols: float = 200):
+        super().__init__(meas_dict=meas_dict, iofilePathes=iofilePathes, afmParameters=afmParameters)
         warnings.simplefilter('ignore')
-
-        self.zig = zig
-        self.map_shape = map_shape
-        self.app_length = length_data[0]
+        self.invols = invols
         self.sr_length = 50000
-        self.ret_length = length_data[0]
-        self.all_length = self.ret_length + self.sr_length + self.app_length
 
-    def sep_srdata(self, data):
-        """
-        データをアプローチ、応力緩和、リトラクションのデータに分割する関数。
-        Parameters
-        ----------
-        data : np.ndarray
-
-        Returns
-        -------
-        app_data, sr_data, ret_data
-            押し込みのデータ、応力緩和のデータ、リトラクションのデータ
-        """
-        app_data = data[:, :self.app_length]
-        sr_data = data[:, self.app_length:self.app_length + self.sr_length]
-        ret_data = data[:, self.app_length + self.sr_length:]
-        return app_data, sr_data, ret_data
-
-    def sep_srdata(self, data):
-        """
-        データをアプローチ、応力緩和、リトラクションのデータに分割する関数。
-        Parameters
-        ----------
-        data : arr_like
-            分割するデータ
-        Returns
-        -------
-        app_data, sr_data, ret_data:arr_like
-            アプローチ、応力緩和、リトラクションのデータ
-        """
-        app_data = data[:, :self.app_length]
-        sr_data = data[:, self.app_length:self.app_length + self.sr_length]
-        ret_data = data[:, self.app_length + self.sr_length:]
-        return app_data, sr_data, ret_data
-
-    def sep_srdatas(self):
-        """
-        deflection, 押し込み量, zsensor, forceを応力緩和、リトラクションのデータに分割する関数。
-        """
-        self.def_app, self.def_sr, self.def_ret = self.sep_srdata(self.deflection)
-        self.delta_app, self.delta_sr, self.delta_ret = self.sep_srdata(self.delta)
-        self.z_app, self.z_sr, self.z_ret = self.sep_srdata(self.zsensor)
-        self.force_app, self.force_sr, self.force_ret = self.sep_srdata(self.force)
-
-    def set_cp_delta_force(self, cp):
+    def set_cp(self, data, cp):
         """
         コンタクトポイントからのデータに0殻設定したもの
 
@@ -93,23 +51,16 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         Note
         self.delta~に全部設定される。
         """
-        delta_cp = np.array([d[cp] for d, cp in zip(self.delta_app, cp)]).reshape(-1, 1)
-        force_cp = np.array([f[cp] for f, cp in zip(self.force_app, cp)]).reshape(-1, 1)
-        self.delta_app -= delta_cp
-        self.force_app -= force_cp
-        self.delta_app = np.array([d[cp:] for d, cp in zip(self.delta_app, cp)], dtype=object)
-        self.force_app = np.array([f[cp:] for f, cp in zip(self.force_app, cp)], dtype=object)
-        self.delta_sr -= delta_cp
-        self.delta_ret -= delta_cp
-        self.force_sr -= force_cp
-        self.force_ret -= force_cp
+        data_cp = np.array([d[cp] for d, cp in zip(data, cp)]).reshape(-1, 1)
+        data -= data_cp
+        return data
 
-    def hertz_Et(self):
+    def hertz_Et(self,delta_sr,force_sr):
         """
         Hertzモデルから算出したE(t)
         """
         p = (4 / 3) * (self.R**(1 / 2)) / (1 - self.v**2)
-        Et = self.force_sr / (p * self.delta_sr**(3 / 2))
+        Et = force_sr / (p * delta_sr**(3 / 2))
         return Et
 
     def power_low(self, x, e_inf, e0, alpha):
@@ -238,7 +189,9 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         alpha_res = np.zeros(self.num_data)
         e_inf_res = np.zeros(self.num_data)
         e0_res = np.zeros(self.num_data)
+        
         self.dt = 1 / self.sr_length
+        
         self.sr_time = np.arange(self.dt, 1 + self.dt, self.dt)[data_range[0]:data_range[1]]
         self.sr_time_all = np.arange(0 + sr_time_offset, 1 + sr_time_offset, self.dt)
         tk = TimeKeeper(self.num_data)
@@ -299,46 +252,22 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
             print(all_time, file=f)
         return e_inf_res, e0_res, alpha_res, res, e_fit
 
-    def fit_sr(self, fc_path, sr_fit_dict={}, complement=False):
+    def fit(self, delta_sr,force_sr, contact,sr_fit_dict={}, complement=False):
         # FIXME: 変える 
-        fsrfile = self.isfile_in_data_or_save("force_sr.npy")
-        dsrfile = self.isfile_in_data_or_save("delta_sr.npy")
-        if not fsrfile:
-            start = time.time()
-            self.logger.info("load data")
+    
+        start=time.time()
+        
+        delta_sr = self.set_cp_delta_force(delta_sr,contact)
+        force_sr = self.set_cp_delta_force(force_sr,contact)
 
-            fc_row_data = self.load_row_fc(fc_path=fc_path, complement=complement)
-            if isinstance(fc_row_data, bool):
-                return False
-            self.deflection, self.zsensor = self.split_def_z(fc_row_data)
-            del fc_row_data
-
-            self.deflection = self.set_deflectionbase()
-            self.delta = self.get_indentaion()
-
-            self.force = self.def2force()
-
-            self.sep_srdatas()
-            fcp = FCApproachAnalyzer(save_path="./FitFCApproach.py", map_shape=(20, 20))
-
-            self.E, self.line_fitted_data, self.cross_cp, self.topo_contact, self.cos_map = fcp.fit(
-                self.delta_app, self.force_app)
-
-            self.logger.info("fit approach")
-            # np.save(self.savefile2savepath("grad_topo"),Habs)
-
-            E_grad = self.gradient_adjasment(self.E)
-            self.data_statistics(E_grad, "E_grad", stat_type=["map", "map_only", "hist", "plot"])
-            self.set_cp_delta_force(self.contact)
-
-            np.save(os.path.join(self.save_path, "force_sr"), self.force_sr)
-            np.save(os.path.join(self.save_path, "delta_sr"), self.delta_sr)
+        np.save(os.path.join(self.save_path, "force_sr"), self.force_sr)
+        np.save(os.path.join(self.save_path, "delta_sr"), self.delta_sr)
 
         self.Et = self.isfile_in_data_or_save("et.npy")
         # self.hertz_Et()
         # np.save(os.path.join(self.save_path,"et"),self.Et)
         if not self.Et:
-            self.Et = self.hertz_Et()
+            self.Et = self.hertz_Et(delta_sr,force_sr)
             np.save(os.path.join(self.save_path, "et"), self.Et)
         self.logger.info("start fitting")
 

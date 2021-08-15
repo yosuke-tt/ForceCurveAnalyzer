@@ -23,12 +23,12 @@ from ..parameters.measurament import MeasurantParameters
 
 class FCBaseProcessor(metaclass=ABCMeta):
     def __init__(self,
-                 measurament_param_dict: dict,
+                 meas_dict: dict,
                  iofilePathes: IOFilePathes,
-                 afmParameters: AFMParameters =AFMParameters() ,
+                 afmParameters: AFMParameters = AFMParameters(),
                  logfile: str = 'fitlog.log') -> None:
 
-        self.measurament_param_dict:dict = measurament_param_dict
+        self.meas_dict:dict = meas_dict
         self.iofilepathes : IOFilePathes = iofilePathes
         self.afmParameters : AFMParameters= afmParameters
         

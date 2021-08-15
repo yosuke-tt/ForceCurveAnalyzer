@@ -17,9 +17,9 @@ from ._base_analyzer import FCBaseProcessor
 from ..parameters import *
 
 class FitFC2Ting(FCBaseProcessor):
-    def __init__(self,iofilePathes, measurament_param_dict, afmParameters=AFMParameters(), norm=50):
+    def __init__(self,iofilePathes, meas_dict, afmParameters=AFMParameters(), norm=50):
         # 測定FC時
-        super().__init__(measurament_param_dict=measurament_param_dict,
+        super().__init__(meas_dict=meas_dict,
                          iofilePathes=iofilePathes,
                          afmParameters=afmParameters)
         
