@@ -119,7 +119,7 @@ class GradientAdjsutment:
         img[-1,-1] = np.mean([img[-1,-2],img[-2,-1],img[-2,-2]])
         return img
 
-    def gradient_topo(self,topo, methods = "multi_8"):
+    def fit(self,topo, methods = "multi_8"):
         topo=np.max(topo)-topo
 
         methods_r = self.isMutiorSpline(methods)
@@ -152,16 +152,14 @@ class GradientAdjsutment:
         cos_map = np.cos(theta)
 
 
-        # habs    = self.edge_filter(np.sqrt(gx_d**2+gy_d**2))
-        # theta   = self.edge_filter(np.arctan(habs))
-        # cos_map = self.edge_filter(np.cos(theta))
-
-        cos_map = self.slice_3d_img(x,y,topo,
-                                    gx_d
-                                    ,gy_d,habs,theta,cos_map
+        cos_map = self.slice_3d_img(x,y,
+                                    topo,
+                                    gx_d,gy_d,
+                                    habs,theta,cos_map
                                     ,x_fit,y_fit,z_fit,
                                     spline=spline)
         return cos_map**(5/2)
+
 
 
 if __name__ == '__main__':

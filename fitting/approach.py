@@ -151,11 +151,4 @@ class FCApproachAnalyzer(FCBaseProcessor):
 
         self.topo_contact = self.get_topo_img(zsensor, self.contact)
         self.get_cross_topo(zsensor, self.cross_cp[:, 0])
-        #
-        self.cos_map = self.ioPathes.isfile_in_data_or_save("cos_map")
-        if isinstance(self.cos_map, bool):
-            ga = GradientAdjsutment(map_shape=self.meas_dict["app_points"])
-            self.cos_map = ga.gradient_topo(self.topo_contact[0])
-            self.cos_map = ga.edge_filter(self.cos_map)
-            np.save(self.savefile2savepath("cos_map"), self.cos_map)
-        return self.E, self.line_fitted_data, self.cross_cp, self.topo_contact, self.cos_map
+        return self.E, self.line_fitted_data, self.cross_cp, self.topo_contact
