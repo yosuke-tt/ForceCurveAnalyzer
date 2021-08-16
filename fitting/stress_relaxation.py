@@ -247,7 +247,7 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
 
             if is_fitting_img:
                 os.makedirs(self.ioPathes.save_name2path("fit_sr"), exist_ok=True)
-                self.sr_fitting_img(self.sr_time_all, y_pred, et_row, e0, e_inf, alpha, res_, i)
+                sr_fitting_img(self.ioPathes.save_path,self.sr_time_all, y_pred, et_row, e0, e_inf, alpha, res_, i)
 
         with open(self.ioPathes.save_name2path("fit_time"), "w") as f:
             print(all_time, file=f)
@@ -273,16 +273,17 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         self.logger.info("start fitting")
 
         e_inf_res, e0_res, alpha_res, res, e_fit = self.fit_power_low(sr_fit_dict)
-        self.fit_sr_all(self.sr_time_all, self.Et, e_fit, e0_res)
+        
+        fit_sr_all(self.ioPathes.save_path, self.meas_dict["map_shape"],self.sr_time_all, self.Et, e_fit, e0_res)
 
         e0_res_grad = self.gradient_adjasment(e0_res)
 
-        self.data_statistics(e_fit[:, -1], "E1", stat_type=["map", "map_only", "hist", "plot"])
-        self.data_statistics(np.log10(e_fit[:, -1]), "log_E1", stat_type=["map", "map_only", "hist", "plot"])
+        data_statistics(self.ioPathes.save_path,self.meas_dict["map_shap"],e_fit[:, -1], "E1", stat_type=["map", "map_only", "hist", "plot"])
+        data_statistics(self.ioPathes.save_path,self.meas_dict["map_shap"],np.log10(e_fit[:, -1]), "log_E1", stat_type=["map", "map_only", "hist", "plot"])
 
         ef2g = self.gradient_adjasment(e_fit[:, -1])
-        self.data_statistics(ef2g, "E1_grad", stat_type=["map", "map_only", "hist", "plot"])
-        self.data_statistics(np.log10(ef2g), "log_E1_grad", stat_type=["map", "map_only", "hist", "plot"])
+        data_statistics(self.ioPathes.save_path,self.meas_dict["map_shap"],ef2g, "E1_grad", stat_type=["map", "map_only", "hist", "plot"])
+        data_statistics(self.ioPathes.save_path,self.meas_dict["map_shap"],np.log10(ef2g), "log_E1_grad", stat_type=["map", "map_only", "hist", "plot"])
 
         end = time.time() - start
         with open(self.ioPathes.save_name2path("time.txt"), "w") as f:

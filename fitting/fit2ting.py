@@ -88,7 +88,15 @@ class FitFC2Ting(FCBaseProcessor):
                                       for fcr, rc, dr in zip(force_ret, ret_base_coeffs, delta_ret)], dtype=object)
 
         if is_plot:
-            self.plot_set_base(force_app_base, force_ret_base)
+            self.plot_set_base(self.ioPathes.save_path,
+                               self.delta_app,
+                                self.delta_ret,
+                                self.force_app,
+                                self.force_ret,
+                                self.contact,
+                                self.ret_contact,
+                                force_app_base,
+                                force_ret_base)
         return force_app_base, force_ret_base
 
     def determine_data_range(
@@ -104,7 +112,7 @@ class FitFC2Ting(FCBaseProcessor):
         ret_contact = [np.where(dr <= da[c])[0][0] if da[c] > np.min(dr) else len(dr) - 1
                        for dr, da, c in zip(delta_ret, delta_app, contact)]
         if is_ret_contact_img:
-            self.ret_contact_img()
+            ret_contact_img(self.ioPathes.save_path,self.delta_ret,self.delta_app,self.force_app,self.force_ret,self.contact,self.ret_contact)
 
         force_app_base, force_ret_base = self.base2zero(
             delta_app, delta_ret, force_app, force_ret, contact, dim=1, is_plot=True, ret_baseline="contact")
@@ -123,7 +131,7 @@ class FitFC2Ting(FCBaseProcessor):
                       for f in force_data]
 
         if is_processed_img:
-            self.plot_preprocessed_img()
+            self.plot_preprocessed_img(self.ioPathes.save_path,self.delta_data,self.force_data,self.delta, self.force)
 
         np.save(self.ioPathes.save_name2path("delta_preprocessed"), self.delta_data)
         np.save(self.ioPathes.save_name2path("force_preprocessed"), self.force_data)
@@ -428,8 +436,10 @@ class FitFC2Ting(FCBaseProcessor):
 
         f_fit = fit_model(np.append(np.argmax(y), x), *popt)
         self.residuals.append(np.abs(f_fit - y))
-        self.fitting_ting(x, y, x_[1:], y_, f_fit,
+        
+        fitting_ting(self.ioPathes.save_path,x, y, x_[1:], y_, f_fit,
                           popt, np.mean((f_fit - y)**2), self.index)
+        
         self.fitting_result.append(f_fit)
         self.tk.timeshow()
         return popt
@@ -476,7 +486,7 @@ class FitFC2Ting(FCBaseProcessor):
         self.logger.debug("Finished fitting")
         return result
 
-    def fit(self, delta_app, delta_ret, force_app, force_ret, contact,
+    def fit(self, delta_app, delta_ret, force_app, force_ret, contact,E,
             fit_index="all", offset=True, ret_ratio=0.3, is_ret_contact_img=False):
         """
 
@@ -535,6 +545,6 @@ class FitFC2Ting(FCBaseProcessor):
             self.residuals = self.ioPathes.isfile_in_data_or_save("residuals.npy")
 
         topo_contact = self.ioPathes.isfile_in_data_or_save("topo_contact.npy")
-        self.plot_ting_summury(topo_contact, E, result, e1, self.residuals)
+        plot_ting_summury(self.ioPathes.save_path,self.meas_dict["map_shape"], topo_contact, E, result, e1, self.residuals) 
         end = time.time() - start
         self.logger.debug(f"Finished TIME :{end}")

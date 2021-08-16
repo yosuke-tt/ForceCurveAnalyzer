@@ -152,7 +152,7 @@ class FCDataLoader():
         deflection = fc_row_data[:, :self.all_length]
         zsensor = fc_row_data[:, self.all_length:self.all_length * 2] * 30e-6
         if fc_img:
-            self.im_def_z_row(deflection, zsensor)
+            self.im_def_z_row(self.ioPathes.save_path,deflection, zsensor)
         return deflection, zsensor
 
     def set_deflectionbase(self):
