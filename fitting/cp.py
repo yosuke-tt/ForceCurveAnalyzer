@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 from ..utils.TimeKeeper import TimeKeeper
 from ._base_analyzer import *
+from ..utils.fc_helper import *
 
 
 class ContactPoint(FCBaseProcessor):
@@ -206,8 +207,7 @@ class ContactPoint(FCBaseProcessor):
         if cc > cp or coeffs[0] < base_fit[0]:
             cc = cp
         if is_plot:
-            self.plot_contact(self.i, x, y, line_fitted_data,
-                              [cc, *base_fit], cps)
+            plot_contact(self.ioPathes.save_path,self.i, x, y, line_fitted_data,[cc, *base_fit], cps)
         self.tk.timeshow()
         self.i += 1
         return [line_fitted_data, [cc, *base_fit]]
@@ -267,60 +267,6 @@ class ContactPoint(FCBaseProcessor):
         return data_cp
 
 
-    def plot_contact(
-            self,
-            i: int,
-            delta_app: np.ndarray,
-            force_app: np.ndarray,
-            line_fitted_data: list,
-            cross_cp: list,
-            cps: list):
-        save_dir = os.path.join(self.save_path, "plot_contact")
-        os.makedirs(save_dir, exist_ok=True)
-        fig, ax = plt.subplots(1, 2, figsize=(30, 15))
-
-        dr_force = (np.max(force_app) - np.min(force_app)) / 10
-        frange = [np.min(force_app) - dr_force, np.max(force_app) + dr_force]
-        dr_delta = (np.max(delta_app) - np.min(delta_app)) / 10
-        drange = [np.min(delta_app) - dr_delta, np.max(delta_app) + dr_delta]
-        ax[0].set_ylim(frange)
-        ax[0].set_xlim(drange)
-        ax[0].plot(delta_app, force_app, zorder=0)
-        ax[0].plot(delta_app[cps[0]:cps[1]], force_app[cps[0]:cps[1]], zorder=0)
-
-        ax[0].plot(delta_app, line_fitted_data[1] * delta_app +
-                   line_fitted_data[2], zorder=1, color="red")
-        ax[0].plot(delta_app, cross_cp[1] * delta_app +
-                   cross_cp[2], zorder=1, color="green")
-
-        ax[0].scatter(delta_app[line_fitted_data[0]],
-                      force_app[line_fitted_data[0]], label="young", c="red", zorder=2)
-        ax[0].scatter(delta_app[cross_cp[0]], force_app[cross_cp[0]],
-                      label="cross", c="green", zorder=2)
-        ax[0].legend()
-
-        dr_force = (np.max(force_app) - np.min(force_app)) / 10
-        dr_delta = (np.max(delta_app) - np.min(delta_app)) / 10
-        drange = [np.min(delta_app) - dr_delta, np.max(delta_app) + dr_delta]
-
-        ax[0].set_ylim(frange)
-        frange = [0, np.max(force_app)]
-        ax[1].set_ylim(frange)
-
-        ax[1].plot(delta_app[cps[0]:], force_app[cps[0]:], zorder=0)
-
-        ax[1].plot(delta_app[cps[0]:], line_fitted_data[1] *
-                   delta_app[cps[0]:] + line_fitted_data[2], zorder=1, color="red")
-        # ax[1].plot(delta_app[cps[0]:],cross_cp[1]*delta_app[cps[0]:]+cross_cp[2],zorder=1, color="green")
-
-        ax[1].scatter(delta_app[line_fitted_data[0]],
-                      force_app[line_fitted_data[0]], label="young", c="red", zorder=2)
-        ax[1].scatter(delta_app[cross_cp[0]], force_app[cross_cp[0]],
-                      label="cross", c="green", zorder=2)
-        ax[1].legend()
-
-        plt.savefig(os.path.join(save_dir, "{:>03}".format(i)))
-        plt.close()
 
 
 if __name__ == "__main__":

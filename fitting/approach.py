@@ -76,8 +76,6 @@ class FCApproachAnalyzer(FCBaseProcessor):
                                 for i, zz in enumerate(self.zsensor - z_base)])
         return self.zsensor
 
-
-
     def fit_hertz_E(self, a_fit=None):
         """
         線形フィットしたデータからヤング率を求める関数
@@ -95,15 +93,11 @@ class FCApproachAnalyzer(FCBaseProcessor):
         E = self.fit_hertz_E(self.line_fitted_data[:, 1])
         return np.array(E)
 
+    @data_statistics_deco(ds_dict={"data_name": "cross_topo_contact"})
     def get_cross_topo(self, zsensor, cross_cp):
         topo = np.array([z[int(c)] if isinstance(c, int) else z[0]
                         for z, c in zip(zsensor, cross_cp)]).reshape(self.meas_dict["map_shape"])
-        
-        np.save(self.ioPathes.save_name2path("cross_topo"), topo)
-        
-        plt.imshow(topo, cmap="Greys")
-        plt.savefig(self.ioPathes.save_name2path("cross_topo"))
-        plt.close()
+                
         return self.topo_contact
 
     @data_statistics_deco(ds_dict={"data_name": "topo_contact"})
@@ -122,8 +116,7 @@ class FCApproachAnalyzer(FCBaseProcessor):
         topo_contact : bool
             コンタクトポイントでのトポグラフィー像
         """
-        self.topo_contact = np.array(
-            [z[c] for z, c in zip(zsensor, contact)]).reshape(self.meas_dict["app_points"])
+        self.topo_contact = np.array([z[c] for z, c in zip(zsensor, contact)]).reshape(self.meas_dict["app_points"])
         return self.topo_contact
 
     def fit(
