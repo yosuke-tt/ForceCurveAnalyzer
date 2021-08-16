@@ -116,7 +116,7 @@ class FCApproachAnalyzer(FCBaseProcessor):
         topo_contact : bool
             コンタクトポイントでのトポグラフィー像
         """
-        self.topo_contact = np.array([z[c] for z, c in zip(zsensor, contact)]).reshape(self.meas_dict["app_points"])
+        self.topo_contact = np.array([z[c] for z, c in zip(zsensor, contact)]).reshape(self.meas_dict["map_shape"])
         return self.topo_contact
 
     def fit(
@@ -134,10 +134,10 @@ class FCApproachAnalyzer(FCBaseProcessor):
         self.logger.debug("Started searching contact point")
         #TODO: ContactPoint分ける。GradientAdjasmentの分割
         cp = ContactPoint(meas_dict=self.meas_dict, 
-                          iofilePathes=self.iofilePathes, 
+                          iofilePathes=self.ioPathes, 
                           afmParam=self.afmParam)
 
-        self.line_fitted_data, self.cross_cp = cp.get_cp(delta_app=delta_app, force_app=force_app, plot=True)
+        self.line_fitted_data, self.cross_cp = cp.fit(delta_app=delta_app, force_app=force_app, plot=True)
         self.E = self.get_E()
         self.contact = np.array(self.line_fitted_data[:, 0], dtype=np.int32)
         np.save(self.ioPathes.save_name2path("contact"), self.contact)

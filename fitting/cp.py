@@ -227,7 +227,7 @@ class ContactPoint(FCBaseProcessor):
         np.save(os.path.join(self.save_path, "cross_cp.npy"),
                 self.cross_cp)
 
-    def get_cp(self, delta_app: np.ndarray, force_app: np.ndarray, plot: bool = False):
+    def fit(self, delta_app: np.ndarray, force_app: np.ndarray, plot: bool = False):
         """
         コンタクトポイントを取得する関数
         Returns
@@ -238,9 +238,9 @@ class ContactPoint(FCBaseProcessor):
         cp_pre = self.get_cp_pre(force_app)
         self.i = 0
         self.tk = TimeKeeper(len(force_app))
-        self.line_fitted_data = self.isfile_in_data_or_save("linfitdata.npy")
-        self.cross_cp = self.isfile_in_data_or_save("cross_cp.npy")
-        self.contact = self.isfile_in_data_or_save("contact.npy")
+        self.line_fitted_data = self.ioPathes.isfile_in_data_or_save("linfitdata.npy")
+        self.cross_cp = self.ioPathes.isfile_in_data_or_save("cross_cp.npy")
+        self.contact = self.ioPathes.isfile_in_data_or_save("contact.npy")
         if isinstance(self.line_fitted_data, bool) or isinstance(self.cross_cp, bool):
             self.contact_search(delta_app, force_app, cp_pre)
         return self.line_fitted_data, self.cross_cp

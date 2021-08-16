@@ -17,7 +17,7 @@ def im_def_z_row(save_path,deflection, zsensor):
         ax[1].plot(zsensor)
         ax[1].set_title("z")
         fig.suptitle(f"ForceCurve {i}")
-        fig.savefig(os.path.join(self.save_path,"ForceCurve","ForceCurve_{:>03}".format(i)))
+        fig.savefig(os.path.join(save_path,"ForceCurve","ForceCurve_{:>03}".format(i)))
         plt.close()
 
 
@@ -183,10 +183,11 @@ def plot_set_base(save_path,
         plt.plot(dr,fr,color="red")
         plt.plot(da,fab,color="blue")
         plt.plot(dr,frb,color="blue")
-        plt.savefig(os.path.join(save_path"base_plot/{:>03}".format(i)))
+
+        plt.savefig(os.path.join(save_path,"base_plot/{:>03}".format(i)))
         plt.close()
     
-def imshow_ax(self, data, ax, title):
+def imshow_ax(data, ax, title):
     m = np.median(data)
     st = np.std(data)
     mapple = ax.imshow(data,vmin=np.max([0,m-2*st]),vmax=m+2*st,cmap="Greys")

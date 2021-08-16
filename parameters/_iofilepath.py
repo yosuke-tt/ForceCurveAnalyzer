@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from datetime import datetime
 
+import numpy as np
 #! 
 #?
 #TODO
@@ -52,9 +53,7 @@ class IOFilePathes:
             ない場合、None
         """
         
-        data_file_path:str = os.path.join(self.data_path, file_name)
-        
-        if self.is_data_path and os.path.isfile(data_file_path):
+        if self.is_data_path and os.path.isfile(os.path.join(self.data_path, file_name)):
             data:np.ndarray = np.load(os.path.join(self.data_path, file_name), allow_pickle=True)
         elif os.path.isfile(os.path.join(self.save_path, file_name)):
             data: np.ndarray = np.load(os.path.join(self.save_path, file_name), allow_pickle=True)

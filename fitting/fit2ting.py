@@ -16,9 +16,10 @@ from ._base_analyzer import FCBaseProcessor
 
 from ..parameters import *
 from ..utils import TimeKeeper
+from ..utils.fc_helper import * 
 
 class FitFC2Ting(FCBaseProcessor):
-    def __init__(self,iofilePathes, meas_dict, afmParam=AFMParameters(), norm=50):
+    def __init__(self, meas_dict, iofilePathes, afmParam=AFMParameters(), norm=50):
         # 測定FC時
         super().__init__(meas_dict=meas_dict,
                          iofilePathes=iofilePathes,
@@ -130,11 +131,11 @@ class FitFC2Ting(FCBaseProcessor):
         force_data = [self.normalize(f, norm_length=self.norm)
                       for f in force_data]
 
-        if is_processed_img:
-            self.plot_preprocessed_img(self.ioPathes.save_path,self.delta_data,self.force_data,self.delta, self.force)
+        # if is_processed_img:
+        #     plot_preprocessed_img(self.ioPathes.save_path,delta_data,force_data,self.delta, self.force)
 
-        np.save(self.ioPathes.save_name2path("delta_preprocessed"), self.delta_data)
-        np.save(self.ioPathes.save_name2path("force_preprocessed"), self.force_data)
+        np.save(self.ioPathes.save_name2path("delta_preprocessed"), delta_data)
+        np.save(self.ioPathes.save_name2path("force_preprocessed"), force_data)
 
         return delta_data, force_data
 
@@ -514,7 +515,7 @@ class FitFC2Ting(FCBaseProcessor):
             delta_data, force_data = self.determine_data_range(
                 delta_app, delta_ret, force_app, force_ret, contact,)
 
-        if not self.ioPathes.isfile_in_data_or_save("fit_result.npy")):
+        if isinstance(self.ioPathes.isfile_in_data_or_save("fit_result.npy"), bool) :
             self.logger.debug(f"Start fitting")
             result = self.fit_tingmodel(
                 delta_data, force_data, offset=offset, fit_index=fit_index)

@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 
 
-class MeasurantParameters:
+class MeasuramentParameters:
     config_dict_default: dict = {'zig': False, 
                                  'ret_points': 12000, 
                                  'app_points': 12000,
@@ -20,7 +20,6 @@ class MeasurantParameters:
         self.fc_path = fc_path
         self.config_overwite = config_overwite
 
-    @sataticmethod
     def str2goodtype(self, key: str, value: str) -> float | bool | list:
         if "時間" in key:
             time: int = int(value)
@@ -43,7 +42,7 @@ class MeasurantParameters:
         return int(value)
 
     def config_file2dict(self, file) -> dict:
-        config_dict = MeasurantParameters.config_dict_default
+        config_dict = MeasuramentParameters.config_dict_default
         for l in file.readlines():
             l = l[:-1]
             number = re.findall(r"[-+]?\d*\.\d+|\d+", l.strip("\n"))
@@ -58,6 +57,8 @@ class MeasurantParameters:
             config_dict[key.rstrip(" ").lower()] = self.str2goodtype(key, "".join(value))
             config_dict.update(self.config_overwite)
         config_dict["map_shape"] = (int(config_dict["xstep"]), int(config_dict["ystep"]))
+
+        config_dict["all_length"] = int(config_dict["app_points"]) + int(config_dict['ret_points'])
         return config_dict
     
     def load_measurament_config(self, config_path: str = "config.txt") -> dict:
