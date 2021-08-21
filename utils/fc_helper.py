@@ -227,6 +227,7 @@ def fitting_ting(save_path,d,f,d_fit,f_fit,fitted_result,r, resi, index):
     plt.plot(d_fit,f_fit[:len(d)], label = "fit data")
     plt.plot(d,fitted_result, label = "fitted plot")
     plt.legend()
+    os.makedirs(os.path.join(save_path,"fit_img"),exist_ok=True)
     plt.savefig(os.path.join(save_path,"fit_img/{:>03}".format(index)))
     plt.close()
 

@@ -220,11 +220,11 @@ class ContactPoint(FCBaseProcessor):
         self.line_fitted_data = scp[:, 0]
         self.cross_cp = scp[:, 1]
 
-        np.save(os.path.join(self.save_path, "linfitdata.npy"),
+        np.save(self.ioPathes.save_name2path( "linfitdata.npy"),
                 self.line_fitted_data)
-        np.save(os.path.join(self.save_path, "contact.npy"),
+        np.save(self.ioPathes.save_name2path( "contact.npy"),
                 self.line_fitted_data[:, 0])
-        np.save(os.path.join(self.save_path, "cross_cp.npy"),
+        np.save(self.ioPathes.save_name2path( "cross_cp.npy"),
                 self.cross_cp)
 
     def fit(self, delta_app: np.ndarray, force_app: np.ndarray, plot: bool = False):

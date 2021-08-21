@@ -24,6 +24,7 @@ class FitFC2Ting(FCBaseProcessor):
         super().__init__(meas_dict=meas_dict,
                          iofilePathes=iofilePathes,
                          afmParam=afmParam)
+        self.tstep = self.afmParam.t_dash
         
         self.norm = norm
         self.Hertz = True
@@ -37,6 +38,7 @@ class FitFC2Ting(FCBaseProcessor):
         self.residuals = []
         self.fitting_result = []
         self.alpha_upper = 0.6
+        self.larger_idx=[]
 
     def elastic_modelconstant(self):
         """
@@ -142,12 +144,12 @@ class FitFC2Ting(FCBaseProcessor):
     def power_law_rheology_model(self, xi, t, param):
 
         if len(param) == 2:
-            return self.model_param * (param[0] * (1 + ((t - xi) / self.tdash))**((-1) * param[1]))
+            return self.model_param * (param[0] * (1 + ((t - xi) / self.afmParam.tdash))**((-1) * param[1]))
         else:
             # return param[2]+(param[0]-param[2])*(1+(t-xi)/self.tdash)**(-1*param[1])
             if (t - xi) != 0.0:
                 # Waring対策
-                return self.model_param * (param[2] + (param[0] - param[2]) * ((t - xi) / self.tdash)**(-1 * param[1]))
+                return self.model_param * (param[2] + (param[0] - param[2]) * ((t - xi) / self.afmParam.t_dash)**(-1 * param[1]))
             else:
                 return self.model_param * param[2]
 
@@ -255,6 +257,7 @@ class FitFC2Ting(FCBaseProcessor):
         alpha = np.min([self.alpha_upper, np.max([0, alpha])])
         einf = np.max([0, einf])
         # print(e0, alpha, einf)
+
         tm = x[0] * self.tstep
         t_app = np.arange(0, tm, self.tstep)
         d_app = x[1:][:int(x[0])]
@@ -337,7 +340,7 @@ class FitFC2Ting(FCBaseProcessor):
             x), label="base_mid", color="red")
         plt.hlines([0], xmin=np.min(x), xmax=np.max(x), label="0")
         plt.legend()
-        plt.savefig(self.ioPathes.save_name2path("processed_img_forting/{:>03}".format(idx)))
+        plt.savefig(self.ioPathes.save_name2path("processed_img_for_ting/{:>03}".format(idx)))
         plt.close()
         return x_new, y_new
 
@@ -440,7 +443,9 @@ class FitFC2Ting(FCBaseProcessor):
         
         fitting_ting(self.ioPathes.save_path,x, y, x_[1:], y_, f_fit,
                           popt, np.mean((f_fit - y)**2), self.index)
-        
+        if popt[0]>1000:
+            self.larger_idx.append(idx)
+        self.larger_idx
         self.fitting_result.append(f_fit)
         self.tk.timeshow()
         return popt
@@ -480,7 +485,7 @@ class FitFC2Ting(FCBaseProcessor):
             self.tk = TimeKeeper(self.num_of_data)
             result = np.array([self.objective_ting(delta[idx], force[idx],
                               idx=idx, offset=offset) for idx in fit_index])
-
+        np.savetxt(self.ioPathes.save_name2path("large_idx"),self.larger_idx)
         # self.change_data("delta_preprocessed", self.delta_data,self.change_x_data, self.change_idx, "change delta data for fitting ting model")
         # self.change_data("force_preprocessed", self.force_data,self.change_y_data, self.change_idx, "change force data for fitting ting model")
 
@@ -521,11 +526,10 @@ class FitFC2Ting(FCBaseProcessor):
                 delta_data, force_data, offset=offset, fit_index=fit_index)
             e1 = np.array([self.power_law_rheology_model(
                 xi=0, t=1, param=p) for p in result])
-            np.save(os.path.join(self.save_path, "fit_result"), result)
+            np.save(self.ioPathes.save_name2path("fit_result"), result)
             np.save(self.ioPathes.save_name2path("e1"), e1)
             np.save(self.ioPathes.save_name2path("residuals"), self.residuals)
-            np.save(self.ioPathes.save_name2path(
-                "fitting_result"), self.fitting_result)
+            np.save(self.ioPathes.save_name2path("fitting_result"), self.fitting_result)
         elif isinstance(fit_index, (list, np.ndarray)):
             result = np.load(self.ioPathes.save_name2path("fit_result.npy"), allow_pickle=True)
             fitting_result = np.load(self.ioPathes.save_name2path("fitting_result.npy"), allow_pickle=True)
