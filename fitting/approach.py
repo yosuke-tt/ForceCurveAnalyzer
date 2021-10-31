@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import sys
 
@@ -7,7 +8,7 @@ import numpy as np
 
 import japanize_matplotlib
 
-from ._base_analyzer import FCBaseProcessor
+from ._base_analyzer import FCBaseProcessor, pathLike
 from .gradientAdjsutment import GradientAdjsutment
 from .cp import ContactPoint
 
@@ -19,11 +20,13 @@ plt.rcParams["font.family"] = "sans-serif"
 
 class FCApproachAnalyzer(FCBaseProcessor):
     def __init__(self,
-                 meas_dict: dict,
-                 iofilePathes: IOFilePathes,
-                 afmParam: AFMParameters = AFMParameters()
+                 save_path : pathLike,
+                 measurament_dict: dict,
+                 afm_param_dict: dict[str,float],
+                 data_path : pathLike=None,
+                 logfile: str = 'fitlog.log',
                  ):
-        super().__init__(meas_dict=meas_dict, iofilePathes=iofilePathes, afmParam=afmParam)
+        super().__init__(save_path, measurament_dict,data_path, afm_param_dict, logfile)
 
     def check_z(self, i, z):
         """
@@ -41,22 +44,22 @@ class FCApproachAnalyzer(FCBaseProcessor):
         z_r : np.ndarray
             チェックしたデータ
         """
-        if z[0] > z[self.meas_dict["app_points"]]:
-            min_leftidx = np.argmin(z[:self.meas_dict["app_points"]])
-            z_left = (z[self.meas_dict["app_points"]] - z[min_leftidx]) * (np.arange(0, min_leftidx) - \
-                      min_leftidx) / (self.meas_dict["app_points"] - min_leftidx) + z[min_leftidx]
+        if z[0] > z[self.measurament_dict["app_points"]]:
+            min_leftidx = np.argmin(z[:self.measurament_dict["app_points"]])
+            z_left = (z[self.measurament_dict["app_points"]] - z[min_leftidx]) * (np.arange(0, min_leftidx) - \
+                      min_leftidx) / (self.measurament_dict["app_points"] - min_leftidx) + z[min_leftidx]
             z_r = np.hstack([z_left, z[min_leftidx:]])
             try:
-                with open(self.ioPathes.save_name2path( "ForceCurve/ForceCurve_{:>03}_zchanged.txt".format(i)), "w") as f:
+                with open(self.save_name2path( "ForceCurve/ForceCurve_{:>03}_zchanged.txt".format(i)), "w") as f:
                     print(z_r, file=f)
                 plt.plot(z_r)
-                plt.savefig(self.ioPathes.save_name2path("ForceCurve/ForceCurve_{:>03}_zchanged".format(i)))
+                plt.savefig(self.save_name2path("ForceCurve/ForceCurve_{:>03}_zchanged".format(i)))
                 plt.close()
             except FileNotFoundError:
-                with open(self.ioPathes.save_name2path("ForceCurve_{:>03}_zchanged.txt".format(i)), "w") as f:
+                with open(self.save_name2path("ForceCurve_{:>03}_zchanged.txt".format(i)), "w") as f:
                     print(z_r, file=f)
                 plt.plot(z_r)
-                plt.savefig(self.ioPathes.save_name2path("ForceCurve_{:>03}_zchanged".format(i)))
+                plt.savefig(self.save_name2path("ForceCurve_{:>03}_zchanged".format(i)))
                 plt.close()
         else:
             z_r = z
@@ -83,8 +86,8 @@ class FCApproachAnalyzer(FCBaseProcessor):
         a_fit : float
             線形近似によるパラメータ
         """
-        para = (4 * self.afmParam.bead_radias**0.5) \
-                / (3 * (1 - self.afmParam.poission_ratio**2))
+        para = (4 * self.afm_param_dict["bead_radias"]**0.5) \
+                / (3 * (1 - self.afm_param_dict["poission_ratio"]**2))
         self.E_hertz = (1 / para) * (a_fit**(3 / 2))
         return self.E_hertz
 
@@ -96,7 +99,7 @@ class FCApproachAnalyzer(FCBaseProcessor):
     @data_statistics_deco(ds_dict={"data_name": "cross_topo_contact"})
     def get_cross_topo(self, zsensor, cross_cp):
         topo = np.array([z[int(c)] if isinstance(c, int) else z[0]
-                        for z, c in zip(zsensor, cross_cp)]).reshape(self.meas_dict["map_shape"])
+                        for z, c in zip(zsensor, cross_cp)]).reshape(self.measurament_dict["map_shape"])
                 
         return self.topo_contact
 
@@ -116,7 +119,7 @@ class FCApproachAnalyzer(FCBaseProcessor):
         topo_contact : bool
             コンタクトポイントでのトポグラフィー像
         """
-        self.topo_contact = np.array([z[c] for z, c in zip(zsensor, contact)]).reshape(self.meas_dict["map_shape"])
+        self.topo_contact = np.array([z[c] for z, c in zip(zsensor, contact)]).reshape(self.measurament_dict["map_shape"])
         return self.topo_contact
 
     def fit(
@@ -133,14 +136,15 @@ class FCApproachAnalyzer(FCBaseProcessor):
             logger=False):
         self.logger.debug("Started searching contact point")
         #TODO: ContactPoint分ける。GradientAdjasmentの分割
-        cp = ContactPoint(meas_dict=self.meas_dict, 
-                          iofilePathes=self.ioPathes, 
-                          afmParam=self.afmParam)
+        cp = ContactPoint(measurament_dict=self.measurament_dict, 
+                          save_path=self.save_path, 
+                          data_path=self.data_path, 
+                          afm_param_dict=self.afm_param_dict)
 
         self.line_fitted_data, self.cross_cp = cp.fit(delta_app=delta_app, force_app=force_app, plot=True)
         self.E = self.get_E()
         self.contact = np.array(self.line_fitted_data[:, 0], dtype=np.int32)
-        np.save(self.ioPathes.save_name2path("contact"), self.contact)
+        np.save(self.save_name2path("contact"), self.contact)
 
         self.topo_contact = self.get_topo_img(zsensor, self.contact)
         self.get_cross_topo(zsensor, self.cross_cp[:, 0])

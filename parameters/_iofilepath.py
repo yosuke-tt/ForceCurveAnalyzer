@@ -54,9 +54,9 @@ class IOFilePathes:
         """
         
         if self.is_data_path and os.path.isfile(os.path.join(self.data_path, file_name)):
-            data:np.ndarray = np.load(os.path.join(self.data_path, file_name), allow_pickle=True)
+            data:np.ndarray = np.load(os.path.join(self.data_path, file_name), allaw_pickle=True)
         elif os.path.isfile(os.path.join(self.save_path, file_name)):
-            data: np.ndarray = np.load(os.path.join(self.save_path, file_name), allow_pickle=True)
+            data: np.ndarray = np.load(os.path.join(self.save_path, file_name), allaw_pickle=True)
         else:
             data: np.ndarray = False
         return data

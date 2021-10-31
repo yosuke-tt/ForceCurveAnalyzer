@@ -1,4 +1,6 @@
 
+from __future__ import annotations
+
 import os
 import time
 from glob import glob
@@ -12,19 +14,25 @@ from matplotlib import rcParams
 # フォントの設定
 rcParams['font.family'] = 'sans-serif'
 
-from ._base_analyzer import FCBaseProcessor
+from ._base_analyzer import FCBaseProcessor, pathLike
 
 from ..parameters import *
 from ..utils import TimeKeeper
 from ..utils.fc_helper import * 
 
 class FitFC2Ting(FCBaseProcessor):
-    def __init__(self, meas_dict, iofilePathes, afmParam=AFMParameters(), norm=50):
+    def __init__(self,
+                 save_path       : pathLike,
+                 measurament_dict: dict[str,float],
+                 afm_param_dict  : dict[str,float],
+                 data_path       : pathLike = None,
+                 logfile         : str      = 'fitlog.log',
+                 norm            : int      =  50
+                 ):
+        super().__init__(save_path, measurament_dict,data_path, afm_param_dict, logfile)
         # 測定FC時
-        super().__init__(meas_dict=meas_dict,
-                         iofilePathes=iofilePathes,
-                         afmParam=afmParam)
-        self.tstep = self.afmParam.t_dash
+
+        self.tstep = self.afm_param_dict["t_dash"]
         
         self.norm = norm
         self.Hertz = True
@@ -57,11 +65,11 @@ class FitFC2Ting(FCBaseProcessor):
             ヘルツモデルの球の定数。
         """
         if self.Hertz:
-            model_param = (4 * self.afmParam.bead_radias**0.5) \
-                                / (3 * (1 - self.afmParam.poission_ratio**2))
+            model_param = (4 * self.afm_param_dict["bead_radias"]**0.5) \
+                                / (3 * (1 - self.afm_param_dict["poission_ratio"]**2))
         else:
-            model_param = (2 * self.afmParam.tan_theta) \
-                            / (np.pi * (1 - self.afmParam.poission_ratio**2))
+            model_param = (2 * self.afm_param_dict["tan_theta"]) \
+                            / (np.pi * (1 - self.afm_param_dict["poission_ratio"]**2))
         return model_param
 
     def base2zero(self, delta_app, delta_ret, force_app, force_ret, contact, dim=1, ret_baseline="app", is_plot=True):
@@ -91,7 +99,7 @@ class FitFC2Ting(FCBaseProcessor):
                                       for fcr, rc, dr in zip(force_ret, ret_base_coeffs, delta_ret)], dtype=object)
 
         if is_plot:
-            self.plot_set_base(self.ioPathes.save_path,
+            self.plot_set_base(self.save_path,
                                self.delta_app,
                                 self.delta_ret,
                                 self.force_app,
@@ -115,7 +123,7 @@ class FitFC2Ting(FCBaseProcessor):
         ret_contact = [np.where(dr <= da[c])[0][0] if da[c] > np.min(dr) else len(dr) - 1
                        for dr, da, c in zip(delta_ret, delta_app, contact)]
         if is_ret_contact_img:
-            ret_contact_img(self.ioPathes.save_path,self.delta_ret,self.delta_app,self.force_app,self.force_ret,self.contact,self.ret_contact)
+            ret_contact_img(self.save_path,self.delta_ret,self.delta_app,self.force_app,self.force_ret,self.contact,self.ret_contact)
 
         force_app_base, force_ret_base = self.base2zero(
             delta_app, delta_ret, force_app, force_ret, contact, dim=1, is_plot=True, ret_baseline="contact")
@@ -134,22 +142,22 @@ class FitFC2Ting(FCBaseProcessor):
                       for f in force_data]
 
         # if is_processed_img:
-        #     plot_preprocessed_img(self.ioPathes.save_path,delta_data,force_data,self.delta, self.force)
+        #     plot_preprocessed_img(self.save_path,delta_data,force_data,self.delta, self.force)
 
-        np.save(self.ioPathes.save_name2path("delta_preprocessed"), delta_data)
-        np.save(self.ioPathes.save_name2path("force_preprocessed"), force_data)
+        np.save(self.save_name2path("delta_preprocessed"), delta_data)
+        np.save(self.save_name2path("force_preprocessed"), force_data)
 
         return delta_data, force_data
 
     def power_law_rheology_model(self, xi, t, param):
 
         if len(param) == 2:
-            return self.model_param * (param[0] * (1 + ((t - xi) / self.afmParam.tdash))**((-1) * param[1]))
+            return self.model_param * (param[0] * (1 + ((t - xi) / self.afm_param_dict["tdash"]))**((-1) * param[1]))
         else:
             # return param[2]+(param[0]-param[2])*(1+(t-xi)/self.tdash)**(-1*param[1])
             if (t - xi) != 0.0:
                 # Waring対策
-                return self.model_param * (param[2] + (param[0] - param[2]) * ((t - xi) / self.afmParam.t_dash)**(-1 * param[1]))
+                return self.model_param * (param[2] + (param[0] - param[2]) * ((t - xi) / self.afm_param_dict["t_dash"])**(-1 * param[1]))
             else:
                 return self.model_param * param[2]
 
@@ -319,34 +327,46 @@ class FitFC2Ting(FCBaseProcessor):
     def change_fit_range(self, x, y, idx, start_fit=20, end_fit=40):
         y_app = y[:np.argmax(y)]
         x_app = x[:np.argmax(y)]
-        y_app_length = len(y_app)
 
         lfit = np.vstack([self.linefit(x_app, y_app, cp=i, d="easy_fit")
                          for i in range(len(y_app) - end_fit, len(y_app) - start_fit)])
         coeffs = lfit[:, 1:]
         coeffs_m = np.median(coeffs, axis=0)
 
-        base_mid = (y[-1] - y[0]) / 2
+        base_mid = (y[-1]-y[0]) / 2
         x_new_start = (base_mid - coeffs_m[1]) / coeffs_m[0]
         x_new = x[x > x_new_start]
         y_new_ = y[x > x_new_start]
-        y_new = y_new_ - np.abs(base_mid)
-
-        os.makedirs(self.ioPathes.save_name2path("processed_img_for_ting"), exist_ok=True)
+        # TODO: 個々の値を更新するたびに、appに近くする。もしくは、はじめに、appと0(baseline)との近さによって、変化させる。
+        base_mid_new = (y_new_[0]-y_new_[-1]) / 2
+        y_new = y_new_-y_new_[0] + np.abs(base_mid_new)
+        os.makedirs(self.save_name2path("processed_img_for_ting"), exist_ok=True)
         plt.plot(x, y, label="original")
+        plt.plot(x,coeffs_m[0]*x+coeffs_m[1],label="lines")
         plt.plot(x_new, y_new, label="new")
-        plt.plot(x_new, y_new, label="new")
-        plt.hlines([base_mid], xmin=np.min(x), xmax=np.max(
-            x), label="base_mid", color="red")
-        plt.hlines([0], xmin=np.min(x), xmax=np.max(x), label="0")
+        plt.vlines([x_new_start], 
+                   ymin=np.min(y), 
+                   ymax=np.max(y), 
+                   label="x_new_start",
+                   color="red")
+
+        plt.hlines([base_mid,base_mid_new], 
+                   xmin=np.min(x), 
+                   xmax=np.max(x), 
+                   label="base_mid",
+                   color="red")
+        plt.hlines([0], 
+                   xmin=np.min(x), 
+                   xmax=np.max(x),
+                   label="0")
         plt.legend()
-        plt.savefig(self.ioPathes.save_name2path("processed_img_for_ting/{:>03}".format(idx)))
+        plt.savefig(self.save_name2path("processed_img_for_ting/{:>03}".format(idx)))
         plt.close()
         return x_new, y_new
 
     def change_data(self, file_path, all_data, change_data, idx, info):
 
-        with open(self.ioPathes.save_name2path("change_data_info.txt"), "a") as f:
+        with open(self.save_name2path("change_data_info.txt"), "a") as f:
             print(time.strftime("%Y%m%d %H:%M:%S"), file=f)
             print(file_path, file=f)
             print(idx, file=f)
@@ -354,15 +374,15 @@ class FitFC2Ting(FCBaseProcessor):
 
         pre_data_path = os.path.basename(file_path).split(".")[0] + "_pre.npy"
 
-        data_old = self.ioPathes.isfile_in_data_or_save(pre_data_path)
+        data_old = self.isfile_in_data_or_save(pre_data_path)
 
         if isinstance(data_old, bool):
             data_old = np.array([[idx, change_data]])
         else:
             data_old = np.vstack([data_old, [idx, change_data]])
-        np.save(self.ioPathes.save_name2path(pre_data_path), data_old)
+        np.save(self.save_name2path(pre_data_path), data_old)
         all_data[idx] = change_data
-        np.save(self.ioPathes.save_name2path(file_path), all_data)
+        np.save(self.save_name2path(file_path), all_data)
 
     def objective_ting(
             self,
@@ -373,7 +393,7 @@ class FitFC2Ting(FCBaseProcessor):
             data_ratio=[0, 0.6],
             optimize_times=3,
             res_th_upper=1e-19,
-            e1_th_lower=10):
+            e1_th_lawer=10):
         """
         tingmodelフィッティングの際に最適化する関数。
 
@@ -407,47 +427,52 @@ class FitFC2Ting(FCBaseProcessor):
         fit_model = self.tingmodel_offset if offset else self.tingmodel
         self.popt_tmp = iv
         self.y_tmp = y_
-        for i in range(optimize_times):  # あんまりよくないfor
-            popt, pcov = optimize.curve_fit(
-                fit_model, xdata=x_, ydata=y_, p0=iv)
-            e0 = np.max([0, popt[0]])
-            alpha = np.min([self.alpha_upper, np.max([0, popt[1]])])
+        try:
+            for i in range(optimize_times):  # あんまりよくないfor
+                # TODO: base_lineを変更するようにして、
+                # アプローチを急激に高くしないようにする。
 
-            if offset:
-                einf = np.max([0, popt[2]])
-                popt = [e0, alpha, einf]
-            else:
-                popt = [e0, alpha]
+                popt, pcov = optimize.curve_fit(fit_model, xdata=x_, ydata=y_, p0=iv)
+                e0 = np.max([0, popt[0]])
+                alpha = np.min([self.alpha_upper, np.max([0, popt[1]])])
+
+                if offset:
+                    einf = np.max([0, popt[2]])
+                    popt = [e0, alpha, einf]
+                else:
+                    popt = [e0, alpha]
+
+                f_fit = fit_model(np.append(np.argmax(y), x), *popt)
+
+                if np.mean((f_fit - y)**2) < res_th_upper and popt[0] > e1_th_lawer:
+                    break
+                elif i == 0:
+                    x, y = self.change_fit_range(x, y, idx)
+                    data_range = len(y) * np.array(data_ratio)
+                    data_start, data_end = int(data_range[0]), int(data_range[1])
+                    y_ = y[data_start:data_end]
+                    x_data = x[data_start:data_end]
+                    x_ = np.append(np.argmax(y), x_data)
+                    self.change_x_data = np.append(self.change_x_data, x)
+                    self.change_y_data = np.append(self.change_y_data, y)
+                    self.change_idx = np.append(self.change_idx, self.index)
+                else:
+                    iv = np.abs(np.random.randn(3)) * np.array(iv)
+                    if popt[0] < 10:
+                        popt = self.popt_tmp
 
             f_fit = fit_model(np.append(np.argmax(y), x), *popt)
-
-            if np.mean((f_fit - y)**2) < res_th_upper and popt[0] > e1_th_lower:
-                break
-            elif i == 0:
-                x, y = self.change_fit_range(x, y, idx)
-                data_range = len(y) * np.array(data_ratio)
-                data_start, data_end = int(data_range[0]), int(data_range[1])
-                y_ = y[data_start:data_end]
-                x_data = x[data_start:data_end]
-                x_ = np.append(np.argmax(y), x_data)
-                self.change_x_data = np.append(self.change_x_data, x)
-                self.change_y_data = np.append(self.change_y_data, y)
-                self.change_idx = np.append(self.change_idx, self.index)
-            else:
-                iv = np.abs(np.random.randn(3)) * np.array(iv)
-                if popt[0] < 10:
-                    popt = self.popt_tmp
-
-        f_fit = fit_model(np.append(np.argmax(y), x), *popt)
-        self.residuals.append(np.abs(f_fit - y))
-        
-        fitting_ting(self.ioPathes.save_path,x, y, x_[1:], y_, f_fit,
-                          popt, np.mean((f_fit - y)**2), self.index)
-        if popt[0]>1000:
-            self.larger_idx.append(idx)
-        self.larger_idx
-        self.fitting_result.append(f_fit)
-        self.tk.timeshow()
+            self.residuals.append(np.abs(f_fit - y))
+            
+            fitting_ting(self.save_path,x, y, x_[1:], y_, f_fit,
+                            popt, np.mean((f_fit - y)**2), self.index)
+            if popt[0]>1000:
+                self.larger_idx.append(idx)
+            self.larger_idx
+            self.fitting_result.append(f_fit)
+            self.tk.timeshow()
+        except IndexError:
+            popt=[0,0,0]
         return popt
     # @data_statistics_deco(ds_dict={"data_name":"YoungE"})
 
@@ -473,7 +498,6 @@ class FitFC2Ting(FCBaseProcessor):
         coefs : np.ndarray
             結果
         """
-
         if fit_index == "all":
             self.index = 0
             self.num_of_data = len(delta)
@@ -485,7 +509,7 @@ class FitFC2Ting(FCBaseProcessor):
             self.tk = TimeKeeper(self.num_of_data)
             result = np.array([self.objective_ting(delta[idx], force[idx],
                               idx=idx, offset=offset) for idx in fit_index])
-        np.savetxt(self.ioPathes.save_name2path("large_idx"),self.larger_idx)
+        np.savetxt(self.save_name2path("large_idx"),self.larger_idx)
         # self.change_data("delta_preprocessed", self.delta_data,self.change_x_data, self.change_idx, "change delta data for fitting ting model")
         # self.change_data("force_preprocessed", self.force_data,self.change_y_data, self.change_idx, "change force data for fitting ting model")
 
@@ -513,27 +537,27 @@ class FitFC2Ting(FCBaseProcessor):
         """
         start = time.time()
 
-        delta_data = self.ioPathes.isfile_in_data_or_save("delta_preprocessed.npy")
-        force_data = self.ioPathes.isfile_in_data_or_save("force_preprocessed.npy")
+        delta_data = self.isfile_in_data_or_save("delta_preprocessed.npy")
+        force_data = self.isfile_in_data_or_save("force_preprocessed.npy")
 
         if True or (not isinstance(delta_data, np.ndarray) or not isinstance(force_data, np.ndarray)):
             delta_data, force_data = self.determine_data_range(
                 delta_app, delta_ret, force_app, force_ret, contact,)
 
-        if isinstance(self.ioPathes.isfile_in_data_or_save("fit_result.npy"), bool) :
+        if isinstance(self.isfile_in_data_or_save("fit_result.npy"), bool) :
             self.logger.debug(f"Start fitting")
             result = self.fit_tingmodel(
                 delta_data, force_data, offset=offset, fit_index=fit_index)
             e1 = np.array([self.power_law_rheology_model(
                 xi=0, t=1, param=p) for p in result])
-            np.save(self.ioPathes.save_name2path("fit_result"), result)
-            np.save(self.ioPathes.save_name2path("e1"), e1)
-            np.save(self.ioPathes.save_name2path("residuals"), self.residuals)
-            np.save(self.ioPathes.save_name2path("fitting_result"), self.fitting_result)
+            np.save(self.save_name2path("fit_result"), result)
+            np.save(self.save_name2path("e1"), e1)
+            np.save(self.save_name2path("residuals"), self.residuals)
+            np.save(self.save_name2path("fitting_result"), self.fitting_result)
         elif isinstance(fit_index, (list, np.ndarray)):
-            result = np.load(self.ioPathes.save_name2path("fit_result.npy"), allow_pickle=True)
-            fitting_result = np.load(self.ioPathes.save_name2path("fitting_result.npy"), allow_pickle=True)
-            residuals = np.load(self.ioPathes.save_name2path("residuals"), allow_pickle=True)
+            result = np.load(self.save_name2path("fit_result.npy"), allaw_pickle=True)
+            fitting_result = np.load(self.save_name2path("fitting_result.npy"), allaw_pickle=True)
+            residuals = np.load(self.save_name2path("residuals"), allow_pickle=True)
             result_partial = self.fit_tingmodel(
                 delta_data, force_data, offset=offset, fit_index=fit_index)
             result[fit_index] = result_partial
@@ -541,15 +565,15 @@ class FitFC2Ting(FCBaseProcessor):
             residuals[fit_index] = self.residual
             e1 = np.array([self.power_law_rheology_model(
                 xi=0, t=1, param=p) for p in result])
-            np.save(self.ioPathes.save_name2path("fit_result_changed"), result)
-            np.save(self.ioPathes.save_name2path(
+            np.save(self.save_name2path("fit_result_changed"), result)
+            np.save(self.save_name2path(
                 "fitting_result_changed"), fitting_result)
         else:
-            result = self.ioPathes.isfile_in_data_or_save("fit_result.npy")
-            e1 = self.ioPathes.isfile_in_data_or_save("e1.npy")
-            self.residuals = self.ioPathes.isfile_in_data_or_save("residuals.npy")
+            result = self.isfile_in_data_or_save("fit_result.npy")
+            e1 = self.isfile_in_data_or_save("e1.npy")
+            self.residuals = self.isfile_in_data_or_save("residuals.npy")
 
-        topo_contact = self.ioPathes.isfile_in_data_or_save("topo_contact.npy")
-        plot_ting_summury(self.ioPathes.save_path,self.meas_dict["map_shape"], topo_contact, E, result, e1, self.residuals) 
+        topo_contact = self.isfile_in_data_or_save("topo_contact.npy")
+        plot_ting_summury(self.save_path,self.measurament_dict["map_shape"], topo_contact, E, result, e1, self.residuals) 
         end = time.time() - start
         self.logger.debug(f"Finished TIME :{end}")

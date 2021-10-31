@@ -12,16 +12,17 @@ from ..utils.fc_helper import *
 
 class ContactPoint(FCBaseProcessor):
     def __init__(self,
-                 meas_dict: dict,
-                 iofilePathes: IOFilePathes,
-                 afmParam: AFMParameters = AFMParameters(),
+                 measurament_dict: dict,
+                 afm_param_dict: dict[str,float],
                  cp_th: float = 0.1,
                  num_th: int = 1000,
                  fm_div: float = 1e-11,
                  save_path: str = "./",
                  data_path: str = "",
-                 dist_basecp: int = 1000) -> None:
-        super().__init__(meas_dict=meas_dict, iofilePathes=iofilePathes, afmParam=afmParam)
+                 dist_basecp: int = 1000,
+                 logfile: str = 'fitlog.log'
+                ) -> None:
+        super().__init__(save_path, measurament_dict,data_path, afmParam, logfile)
 
         self.cp_th = cp_th
         self.num_th = num_th
@@ -207,7 +208,7 @@ class ContactPoint(FCBaseProcessor):
         if cc > cp or coeffs[0] < base_fit[0]:
             cc = cp
         if is_plot:
-            plot_contact(self.ioPathes.save_path,self.i, x, y, line_fitted_data,[cc, *base_fit], cps)
+            plot_contact(self.save_path,self.i, x, y, line_fitted_data,[cc, *base_fit], cps)
         self.tk.timeshow()
         self.i += 1
         return [line_fitted_data, [cc, *base_fit]]
@@ -220,11 +221,11 @@ class ContactPoint(FCBaseProcessor):
         self.line_fitted_data = scp[:, 0]
         self.cross_cp = scp[:, 1]
 
-        np.save(self.ioPathes.save_name2path( "linfitdata.npy"),
+        np.save(self.save_name2path( "linfitdata.npy"),
                 self.line_fitted_data)
-        np.save(self.ioPathes.save_name2path( "contact.npy"),
+        np.save(self.save_name2path( "contact.npy"),
                 self.line_fitted_data[:, 0])
-        np.save(self.ioPathes.save_name2path( "cross_cp.npy"),
+        np.save(self.save_name2path( "cross_cp.npy"),
                 self.cross_cp)
 
     def fit(self, delta_app: np.ndarray, force_app: np.ndarray, plot: bool = False):
@@ -238,9 +239,9 @@ class ContactPoint(FCBaseProcessor):
         cp_pre = self.get_cp_pre(force_app)
         self.i = 0
         self.tk = TimeKeeper(len(force_app))
-        self.line_fitted_data = self.ioPathes.isfile_in_data_or_save("linfitdata.npy")
-        self.cross_cp = self.ioPathes.isfile_in_data_or_save("cross_cp.npy")
-        self.contact = self.ioPathes.isfile_in_data_or_save("contact.npy")
+        self.line_fitted_data = self.isfile_in_data_or_save("linfitdata.npy")
+        self.cross_cp = self.isfile_in_data_or_save("cross_cp.npy")
+        self.contact = self.isfile_in_data_or_save("contact.npy")
         if isinstance(self.line_fitted_data, bool) or isinstance(self.cross_cp, bool):
             self.contact_search(delta_app, force_app, cp_pre)
         return self.line_fitted_data, self.cross_cp

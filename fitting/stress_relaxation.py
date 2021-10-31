@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import os
+import sys
 
 from datetime import datetime, timedelta
 import time
@@ -11,7 +14,7 @@ import matplotlib.pyplot as plt
 plt.rcParams["font.family"] = "sans-serif"
 
 from .approach import FCApproachAnalyzer
-from ._base_analyzer import FCBaseProcessor
+from ._base_analyzer import FCBaseProcessor, pathLike
 
 from ..utils.fc_helper import *
 from ..utils.decorators import data_statistics_deco
@@ -22,20 +25,17 @@ from ..parameters import IOFilePathes, AFMParameters
 import japanize_matplotlib
 
 import warnings
-# import tqdm
-
-
-
-
-
 
 class StressRelaxationPreprocessor(FCBaseProcessor):
     def __init__(self,
-                meas_dict: dict,
-                iofilePathes: IOFilePathes,
-                afmParameters: AFMParameters =AFMParameters() ,
-                invols: float = 200):
-        super().__init__(meas_dict=meas_dict, iofilePathes=iofilePathes, afmParameters=afmParameters)
+                 save_path : pathLike,
+                 measurament_dict: dict,
+                 afm_param_dict: dict[str,float],
+                 data_path : pathLike=None,
+                 logfile: str = 'fitlog.log',
+                 invols=200
+                 ):
+        super().__init__(save_path, measurament_dict,data_path, afm_param_dict, logfile)
         warnings.simplefilter('ignore')
         self.invols = invols
         self.sr_length = 50000
@@ -59,12 +59,12 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         """
         Hertzモデルから算出したE(t)
         """
-        p = (4 / 3) * (self.afmParam.bead_radias**(1 / 2)) \
-                        / (1 - self.afmParam.poission_ratio**2)
+        p = (4 / 3) * (self.afm_param_dict["bead_radias"]**(1 / 2)) \
+                        / (1 - self.afm_param_dict["poission_ratio"]**2)
         Et = force_sr / (p * delta_sr**(3 / 2))
         return Et
 
-    def power_low(self, x, e_inf, e0, alpha):
+    def power_law(self, x, e_inf, e0, alpha):
         """
         べき乗理論
         Parameters
@@ -86,7 +86,7 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         # return e_inf + (e0-e_inf)*((x/self.dt+1)**(-1*alpha))
         return e_inf + (e0 - e_inf) * ((x)**(-1 * alpha))
 
-    def power_low_e0fixed(self, x, e_inf, alpha):
+    def power_law_e0fixed(self, x, e_inf, alpha):
         """
         べき乗理論
         Parameters
@@ -140,13 +140,11 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
 
     @data_statistics_deco(ds_dict={"data_name": ("e_inf_res", "e0_res",
                           "alpha_res", "res", "e_fit"), "skip_idx": [3, 4]})
-    def fit_power_low(
+    def fit_power_law(
             self,
             sr_time=1,
             sr_time_offset=0,
-            data_range=(
-                200,
-                20000),
+            data_range=(200, 20000),
             e0_fixed=False,
             verbose=10,
             is_trial_img=False,
@@ -190,46 +188,46 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         alpha_res = np.zeros(self.num_data)
         e_inf_res = np.zeros(self.num_data)
         e0_res = np.zeros(self.num_data)
-        
+
         self.dt = 1 / self.sr_length
         
         self.sr_time = np.arange(self.dt, 1 + self.dt, self.dt)[data_range[0]:data_range[1]]
         self.sr_time_all = np.arange(0 + sr_time_offset, 1 + sr_time_offset, self.dt)
         tk = TimeKeeper(self.num_data)
 
-        if os.path.isfile(self.ioPathes.save_name2path("complement_num.txt")):
-            complement_num = np.loadtxt(self.ioPathes.save_name2path("complement_num.txt"))
+        if os.path.isfile(self.save_name2path("complement_num.txt")):
+            complement_num = np.loadtxt(self.save_name2path("complement_num.txt"))
         else:
             complement_num = []
-        for i, et in enumerate(self.Et):
 
+        for i, et in enumerate(self.Et):
             if not(i in complement_num):
                 et_row = et
                 et = et[data_range[0]:data_range[1]]
                 if not e0_fixed:
                     param_bounds = ((0.0, 0.0, 0.0), (800, 3000 * (self.invols / 200), 1))
                     try:
-                        popt, pcov = curve_fit(self.power_low, self.sr_time, et, bounds=param_bounds)
+                        popt, pcov = curve_fit(self.power_law, self.sr_time, et, bounds=param_bounds)
                     except ValueError:
-                        with open(self.ioPathes.save_name2path("valueErrorInsrFit.txt"), "a") as f:
+                        with open(self.save_name2path("valueErrorInsrFit.txt"), "a") as f:
                             print("\n\n{}".format(datetime.now()), file=f)
                             print(i, file=f)
                         popt = [0, 0, 0]
                     e_inf = popt[0]
                     e0 = popt[1]
                     alpha = popt[2]
-                    y_pred = self.power_low(self.sr_time_all, e_inf, e0, alpha)
+                    y_pred = self.power_law(self.sr_time_all, e_inf, e0, alpha)
                     res_ = np.mean((et_row[y_pred < 1000000] - y_pred[y_pred < 1000000])**2)
 
                 else:
                     param_bounds = ((0.0, 0.0), (800, 1))
 
                     self.e0_ = et_row[0]
-                    popt, pcov = curve_fit(self.power_low_e0fixed, self.sr_time, et, bounds=param_bounds)
+                    popt, pcov = curve_fit(self.power_law_e0fixed, self.sr_time, et, bounds=param_bounds)
                     e0 = et[0]
                     e_inf = popt[0]
                     alpha = popt[1]
-                    y_pred = self.power_low_e0fixed(self.sr_time_all, e_inf, alpha)
+                    y_pred = self.power_law_e0fixed(self.sr_time_all, e_inf, alpha)
 
                     res_ = np.mean((et_row - y_pred)**2)
             else:
@@ -246,10 +244,10 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
             all_time = tk.timeshow(i)
 
             if is_fitting_img:
-                os.makedirs(self.ioPathes.save_name2path("fit_sr"), exist_ok=True)
-                sr_fitting_img(self.ioPathes.save_path,self.sr_time_all, y_pred, et_row, e0, e_inf, alpha, res_, i)
+                os.makedirs(self.save_name2path("fit_sr"), exist_ok=True)
+                sr_fitting_img(self.save_path,self.sr_time_all, y_pred, et_row, e0, e_inf, alpha, res_, i)
 
-        with open(self.ioPathes.save_name2path("fit_time"), "w") as f:
+        with open(self.save_name2path("fit_time"), "w") as f:
             print(all_time, file=f)
         return e_inf_res, e0_res, alpha_res, res, e_fit
 
@@ -261,32 +259,33 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         delta_sr = self.set_cp_delta_force(delta_sr,contact)
         force_sr = self.set_cp_delta_force(force_sr,contact)
 
-        np.save(self.ioPathes.save_name2path("force_sr"), self.force_sr)
-        np.save(self.ioPathes.save_name2path("delta_sr"), self.delta_sr)
+        np.save(self.save_name2path("force_sr"), self.force_sr)
+        np.save(self.save_name2path("delta_sr"), self.delta_sr)
 
-        self.Et = self.ioPathes.isfile_in_data_or_save("et.npy")
+        self.Et = self.isfile_in_data_or_save("et.npy")
         # self.hertz_Et()
         # np.save(os.path.join(self.save_path,"et"),self.Et)
         if not self.Et:
             self.Et = self.hertz_Et(delta_sr,force_sr)
-            np.save(self.ioPathes.save_name2path("et"), self.Et)
+            np.save(self.save_name2path("et"), self.Et)
         self.logger.info("start fitting")
 
-        e_inf_res, e0_res, alpha_res, res, e_fit = self.fit_power_low(sr_fit_dict)
+        e_inf_res, e0_res, alpha_res, res, e_fit = self.fit_power_law(sr_fit_dict)
         
-        fit_sr_all(self.ioPathes.save_path, self.meas_dict["map_shape"],self.sr_time_all, self.Et, e_fit, e0_res)
-
+        fit_sr_all(self.save_path, self.measurament_dict["map_shape"],self.sr_time_all, self.Et, e_fit, e0_res)
+        
         e0_res_grad = self.gradient_adjasment(e0_res)
-
-        data_statistics(self.ioPathes.save_path,self.meas_dict["map_shap"],e_fit[:, -1], "E1", stat_type=["map", "map_only", "hist", "plot"])
-        data_statistics(self.ioPathes.save_path,self.meas_dict["map_shap"],np.log10(e_fit[:, -1]), "log_E1", stat_type=["map", "map_only", "hist", "plot"])
+        
+        np.save(os.path.join(self.save_path,"fit_result"),e_fit)
+        data_statistics(self.save_path,self.measurament_dict["map_shap"],e_fit[:, -1], "E1", stat_type=["map", "map_only", "hist", "plot"])
+        data_statistics(self.save_path,self.measurament_dict["map_shap"],np.log10(e_fit[:, -1]), "log_E1", stat_type=["map", "map_only", "hist", "plot"])
 
         ef2g = self.gradient_adjasment(e_fit[:, -1])
-        data_statistics(self.ioPathes.save_path,self.meas_dict["map_shap"],ef2g, "E1_grad", stat_type=["map", "map_only", "hist", "plot"])
-        data_statistics(self.ioPathes.save_path,self.meas_dict["map_shap"],np.log10(ef2g), "log_E1_grad", stat_type=["map", "map_only", "hist", "plot"])
+        data_statistics(self.save_path,self.measurament_dict["map_shap"],ef2g, "E1_grad", stat_type=["map", "map_only", "hist", "plot"])
+        data_statistics(self.save_path,self.measurament_dict["map_shap"],np.log10(ef2g), "log_E1_grad", stat_type=["map", "map_only", "hist", "plot"])
 
         end = time.time() - start
-        with open(self.ioPathes.save_name2path("time.txt"), "w") as f:
+        with open(self.save_name2path("time.txt"), "w") as f:
             hour = int(end // 3600)
             minute = int((end - hour * 3600) // 60)
             second = (end - hour * 3600 - minute * 60) / 60
@@ -299,12 +298,12 @@ if __name__ == "__main__":
     sr_time_offset = [0.0002, 0.0004, 0.002, 0.004]
     sr_time_offset = [0.0006, 0.0008, 0.001, 0.0012]
 
-    e0_fixed = [False, True]
+    e0_fixed = False
     # data_path=f"../tsuboyama_0322/tsuboyama_0322/10/"
     save_path = "../応力緩和データ横堀/"
     save_path = "20210706_sr"
     srp = StressRelaxationPreprocessor(
-        save_path=save_path, map_shape=(
-            20, 20), zig=False, length_data=(
-            12000, 12000), invols=305)
-    srp.fit_sr(fc_path="../data_20210517/data_150818", sr_fit_dict={"is_fitting_img": True}, complement=True)
+        save_path=save_path,
+        map_shape=(20, 20),
+        zig=False, length_data=(12000, 12000), invols=305)
+    srp.fit(fc_path="../data_20210517/data_150818", sr_fit_dict={"is_fitting_img": True}, complement=True)

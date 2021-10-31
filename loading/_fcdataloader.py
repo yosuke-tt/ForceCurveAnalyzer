@@ -16,6 +16,9 @@ from scipy import interpolate
 
 from ..utils.fc_helper import *
 from ..utils.decorators import data_statistics_deco
+
+from ..fitting._base_analyzer import pathLike
+
 from ..parameters._afmparam import AFMParameters
 from ..parameters._measurament import MeasuramentParameters
 from ..parameters._iofilepath import IOFilePathes
@@ -23,26 +26,26 @@ from ..parameters._iofilepath import IOFilePathes
 
 class FCDataLoader():
     def __init__(self, 
-                 meas_dict: MeasuramentParameters,
-                 iofilePathes: IOFilePathes,
-                 afm_parameters: AFMParameters=AFMParameters(),
+                 measurament_dict: dict[str,float],
+                 save_path: pathLike,
+                 data_path: pathLike,
+                 afm_param_dict: dict[str, float],
                  invols=200,
                  resolution=10):
 
-        self.meas_dict :dict= meas_dict
-        self.filePathes: FilePathes = iofilePathes
-        self.afm_prameters: AFMParameters = afm_parameters
+        self.measurament_dict :dict[str, float]= measurament_dict
+        self.afm_param_dict: dict[str, float] = afm_param_dict
 
         self.invols = invols
-        self.K = self.invols * 1e-9 * self.afm_prameters.k
+        self.K = self.invols * 1e-9 * self.afm_param_dict["k"]
         self.Hertz = True
 
         self.resolution = resolution
 
     def check_numbering(self, data, complement=True):
         dd = 0
-        if not os.path.isfile(os.path.join(self.filePathes.save_path, "data_info.txt")):
-            with open(os.path.join(self.filePathes.save_path, "data_info.txt"), "w") as f:
+        if not os.path.isfile(os.path.join(self.save_path, "data_info.txt")):
+            with open(os.path.join(self.save_path, "data_info.txt"), "w") as f:
                 print(f"Data Length : {len(data)}", file=f)
                 ld = int(re.findall("\\d+", os.path.basename(data[-1]))[0])
                 print(f"last data   : {ld}", file=f)
@@ -58,7 +61,7 @@ class FCDataLoader():
             for i, df in enumerate(data):
                 df = int(re.findall("\\d+", os.path.basename(df))[0])
                 if i + dd != int(df):
-                    with open(os.path.join(self.filePathes.save_path, "data_info"), "a") as f:
+                    with open(os.path.join(self.save_path, "data_info"), "a") as f:
                         print(f"{i}", file=f)
                     if complement:
                         np.savetxt(os.path.join(dir_name, "ForceCurve_{:>03}.lvm".format(i)), comp_data)
@@ -67,11 +70,11 @@ class FCDataLoader():
                     complement_shape = np.append(complement_shape, [True])
                 else:
                     complement_shape = np.append(complement_shape, [False])
-            np.savetxt(os.path.join(self.filePathes.save_path, "complement_num.txt"), complement_num)
-            np.savetxt(os.path.join(self.filePathes.save_path, "complement_shape.txt"), complement_shape)
+            np.savetxt(os.path.join(self.save_path, "complement_num.txt"), complement_num)
+            np.savetxt(os.path.join(self.save_path, "complement_shape.txt"), complement_shape)
             self.complement_num = complement_num
         else:
-            self.complement_num = np.loadtxt(os.path.join(self.filePathes.save_path, "complement_num.txt"))
+            self.complement_num = np.loadtxt(os.path.join(self.save_path, "complement_num.txt"))
 
     def load_row_fc(
             self,
@@ -79,7 +82,7 @@ class FCDataLoader():
             prefix_lvmfile="ForceCurve_",
             map_shape=None,
             complement=True,
-            allow_any_shape=False):
+            allaw_any_shape=False):
         """
         指定されたパスに含まれるlvmデータをすべてnumpy.ndarrayに入れる関数。
 
@@ -94,7 +97,7 @@ class FCDataLoader():
         fc_row_data:numpy.ndarray
             lvmファイルのデータ
         """
-        fc_row_data = self.filePathes.isfile_in_data_or_save("fc_row_data.npy")
+        fc_row_data = self.isfile_in_data_or_save("fc_row_data.npy")
         if isinstance(fc_row_data, bool):
             print("save data")
             all_fc = glob(os.path.join(fc_path, "ForceCurve", "*.lvm"))
@@ -103,41 +106,41 @@ class FCDataLoader():
 
             fc_row_data = np.array([np.loadtxt(fc_path) for fc_path in all_fc])
             # メモリの関係でエラーが出るため、400は適当。
-            np.save(os.path.join(self.filePathes.save_path, "fc_row_data.npy"), fc_row_data)
+            np.save(os.path.join(self.save_path, "fc_row_data.npy"), fc_row_data)
         else:
-            self.complement_num = np.loadtxt(os.path.join(self.filePathes.save_path, "complement_num.txt"), dtype=object)
+            self.complement_num = np.loadtxt(os.path.join(self.save_path, "complement_num.txt"), dtype=object)
             if len(self.complement_num) > 0:
                 self.complement_num = self.complement_num
         olength = int(np.median([len(f) for f in fc_row_data[::50]]))
         for i, f in enumerate(fc_row_data):
             assert len(f) == olength, f"length of ForceCurve {i} ({len(f)}) is not same as others ({olength})"
 
-        assert isinstance(self.meas_dict["map_shape"], tuple), "map_shape is boolean"
+        assert isinstance(self.measurament_dict["map_shape"], tuple), "map_shape is boolean"
 
-        if len(fc_row_data) != self.meas_dict["map_shape"][0] * self.meas_dict["map_shape"][1]:
-            am = self.meas_dict["map_shape"]
-            self.meas_dict["map_shape"] = (int(np.sqrt(len(fc_row_data))), int(np.sqrt(len(fc_row_data))))
-            ms = self.meas_dict["map_shape"]
+        if len(fc_row_data) != self.measurament_dict["map_shape"][0] * self.measurament_dict["map_shape"][1]:
+            am = self.measurament_dict["map_shape"]
+            self.measurament_dict["map_shape"] = (int(np.sqrt(len(fc_row_data))), int(np.sqrt(len(fc_row_data))))
+            ms = self.measurament_dict["map_shape"]
             print(f"lenght of fc_row_data {len(fc_row_data)} is not same as map_shape {am}=>{ms}")
 
-            allow_any_shape = True
-            if self.meas_dict["map_shape"][0]**2 != len(fc_row_data) or not allow_any_shape:
+            allaw_any_shape = True
+            if self.measurament_dict["map_shape"][0]**2 != len(fc_row_data) or not allaw_any_shape:
                 print("data shape is not square")
         return fc_row_data
 
     def direct_zig(self, data, data_length=1):
-        numbering = np.arange(len(data), dtype=np.int).reshape(self.meas_dict["map_shape"])
+        numbering = np.arange(len(data), dtype=np.int).reshape(self.measurament_dict["map_shape"])
         numbering[1::2] = numbering[1::2, ::-1]
         np.savetxt(self.savefile2savepath("nubering"), numbering)
         if data_length > 1:
-            data = data.reshape(*self.meas_dict["map_shape"], data_length)
+            data = data.reshape(*self.measurament_dict["map_shape"], data_length)
             data[1::2] = data[1::2, ::-1]
             return data.reshape(-1, data_length)
 
         else:
-            data = data.reshape(self.meas_dict["map_shape"])
+            data = data.reshape(self.measurament_dict["map_shape"])
             data[1::2] = data[1::2, ::-1]
-            return data.reshape(-1, self.meas_dict["map_shape"][0] * self.meas_dict["map_shape"][1])
+            return data.reshape(-1, self.measurament_dict["map_shape"][0] * self.measurament_dict["map_shape"][1])
 
     def split_def_z(self, fc_row_data, fc_img=False):
         """
@@ -151,10 +154,10 @@ class FCDataLoader():
         deflection, zsensor: np.ndarray
             デフレクション, zセンサー
         """
-        deflection = fc_row_data[:, :self.meas_dict["all_length"]]
-        zsensor = fc_row_data[:, self.meas_dict["all_length"]:self.meas_dict["all_length"] * 2] * 30e-6
+        deflection = fc_row_data[:, :self.measurament_dict["all_length"]]
+        zsensor = fc_row_data[:, self.measurament_dict["all_length"]:self.measurament_dict["all_length"] * 2] * 30e-6
         if fc_img:
-            self.im_def_z_row(self.ioPathes.save_path,deflection, zsensor)
+            self.im_def_z_row(self.save_path,deflection, zsensor)
         return deflection, zsensor
 
     def set_deflectionbase(self):
@@ -191,9 +194,9 @@ class FCDataLoader():
         app_data, sr_data, ret_data:arr_like
             アプローチ、応力緩和、リトラクションのデータ
         """
-        app_data = data[:, :self.meas_dict["app_points"]]
-        sr_data =  data[:, self.meas_dict["app_points"]:self.meas_dict["app_points"] + self.meas_dict["sr_points"]]
-        ret_data = data[:, self.meas_dict["app_points"] + self.meas_dict["sr_points"]:]
+        app_data = data[:, :self.measurament_dict["app_points"]]
+        sr_data =  data[:, self.measurament_dict["app_points"]:self.measurament_dict["app_points"] + self.measurament_dict["sr_points"]]
+        ret_data = data[:, self.measurament_dict["app_points"] + self.measurament_dict["sr_points"]:]
         return app_data, sr_data, ret_data
 
     def sep_srdatas(self):
@@ -220,8 +223,8 @@ class FCDataLoader():
         topo_contact : bool
             コンタクトポイントでのトポグラフィー像
         """
-        # topo_trig = np.max(zsensor, axis=1).reshape(self.meas_dict["map_shape"])
-        self.topo_contact = np.array([z[c] for z, c in zip(zsensor, contact)]).reshape(self.meas_dict["map_shape"])
+        # topo_trig = np.max(zsensor, axis=1).reshape(self.measurament_dict["map_shape"])
+        self.topo_contact = np.array([z[c] for z, c in zip(zsensor, contact)]).reshape(self.measurament_dict["map_shape"])
         return self.topo_contact
 
     def outlier_value(self, values):
@@ -258,7 +261,7 @@ class FCDataLoader():
         data_ga:array_like
             傾斜補正したデータ
         """
-        data_gra = np.array(data).reshape(self.meas_dict["map_shape"]) / self.cos_map
+        data_gra = np.array(data).reshape(self.measurament_dict["map_shape"]) / self.cos_map
 
         return data_gra
 
@@ -276,7 +279,7 @@ class FCDataLoader():
         data[:,:self.length_of_app],data[:,self.length_of_app:]:array_like
             アプローチ部分のデータ、リトラクションのデータ
         """
-        return data[:, :self.meas_dict["app_points"]], data[:, self.meas_dict["app_points"]:]
+        return data[:, :self.measurament_dict["app_points"]], data[:, self.measurament_dict["app_points"]:]
 
     def load_data(self, fc_path, fc_type="fc", length=(12000, 12000)):
         fc_row_data = self.load_row_fc(fc_path=fc_path, complement=True)

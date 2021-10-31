@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 from abc import ABCMeta, abstractmethod
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 
@@ -11,29 +11,43 @@ import logging
 import logging.handlers
 from logging import getLogger, Formatter, FileHandler, DEBUG, INFO
 
-from ..parameters import (AFMParameters,
-                          IOFilePathes)
 
 # config_dict = {'ystep': 20, 'xstep': 20, 'xlength': 3e-06, 'ylength': 3e-06, 'zig': False}
 #?
 #!
+
 #//
 
+pathLike = Union[str, bytes, os.PathLike, None]
 
+afm_param_dict = {
+    "sampling_rate" : 5e4,
+    "k"             : 0.07,
+    "poission_ratio": 0.5,
+    "bead_ratio"    : 5e-6,
+    "theta"         : 17.5
+} 
+
+    
 
 class FCBaseProcessor(metaclass=ABCMeta):
     def __init__(self,
-                 meas_dict: dict,
-                 iofilePathes: IOFilePathes,
-                 afmParam: AFMParameters = AFMParameters(),
-                 logfile: str = 'fitlog.log') -> None:
+                 save_path       : pathLike,
+                 measurament_dict: dict,
+                 data_path       : pathLike=None,
+                 afm_param_dict  : dict[str,float] = afm_param_dict,
+                 logfile         : str = 'fitlog.log'
+                 ) -> None:
 
-        self.meas_dict:dict = meas_dict
-        self.ioPathes : IOFilePathes = iofilePathes
-        self.afmParam : AFMParameters= afmParam
-        
-        self.logger = self.setup_logger(self.ioPathes.save_name2path(logfile))
-
+        self.measurament_dict:dict = measurament_dict
+        self.save_path = save_path
+        self.data_path = data_path
+        self.is_data_path :bool = (not self.data_path) and os.path.isdir(self.data_path)
+        self.afm_param_dict : dict[str,float]= afm_param_dict
+        self.afm_param_dict["tan_theta"] = np.tan(self.afm_param_dict["theta"])
+        self.afm_param_dict["t_dash"] = 1 / self.afm_param_dict["sampling_rate"]
+        self.logger = self.setup_logger(self.save_name2path(logfile))
+    
         
     @abstractmethod
     def fit():
@@ -69,16 +83,31 @@ class FCBaseProcessor(metaclass=ABCMeta):
         if not logger.handlers:
             logger.addHandler(handler)
         return logger
-
-    def normalize(self, 
-                  data: np.ndarray, 
+    
+    @staticmethod
+    def normalize( data: np.ndarray, 
                   norm_length: int = 10) -> np.ndarray:
+        """平均化する関数
+        
+        0-100, 100-200, ... ごとに平均化する関数
+        Parameters
+        ----------
+        data : np.ndarray
+            平均化するデータ
+        norm_length : int, optional
+            平均化する幅, by default 10
+
+        Returns
+        -------
+        data_med :np.ndarray
+            平均化したデータ
+        """
         data_reshape = data[int(len(data) - norm_length * (len(data) // norm_length)):].reshape(-1, norm_length)
         data_med = np.median(data_reshape, axis=1).reshape(1, -1)[0]
         return data_med
 
-    def linefit(self, 
-                x : np.ndarray, 
+    @staticmethod
+    def linefit( x : np.ndarray, 
                 y : np.ndarray, 
                 cp: int = 0, 
                 d : int = 1):
@@ -93,8 +122,8 @@ class FCBaseProcessor(metaclass=ABCMeta):
             y軸のデータ
         cp : int
             コンタクトポイント
-        d : int, optional
-            次元, by default 1
+        d : int or str, optional
+            次元, dがeasy_fitの場合はじめの点と後ろの点のみで直線作成 by default 1
 
         Returns
         -------
@@ -107,17 +136,62 @@ class FCBaseProcessor(metaclass=ABCMeta):
             a = (y[cp:][-1] - y[cp:][0]) / (x[cp:][-1] - x[cp:][0])
             b = y[cp:][-1] - x[cp:][-1] * a
             coeffs = [a, b]
-            residuals = np.mean(abs(y[cp:] - (x[cp:] * coeffs[0] + coeffs[1])))
-            return [residuals, *coeffs]
+            if len(y[cp:])>2:
+                residuals = np.mean(abs(y[cp:] - (x[cp:] * coeffs[0] + coeffs[1])))
+                return [residuals, *coeffs]
+            else:
+                return coeffs
 
         else:
             coeffs = np.polyfit(x[cp:], y[cp:], d)
             if d == 1:
-                residuals = np.mean(
-                    abs(y[cp:] - (x[cp:] * coeffs[0] + coeffs[1])))
+                # xのベクトルに0次元目と、xの高次元のベクトルに、coeffかけた方が、
+                # 高次元に対応した残差計算ができる。
+                residuals = np.mean(abs(y[cp:] - (x[cp:] * coeffs[0] + coeffs[1])))
                 return residuals, [*coeffs]
             else:
                 return [*coeffs]
 
+    def save_name2path(self, filename: str) -> str:
+        """
+        save_path 内のパス
+
+        Parameters
+        ----------
+        filename : str
+            保存する時のファイル名
+
+        Returns
+        -------
+        os.path.join(self.save_path, filename) : str
+            保存したパス
+        """
+        return os.path.join(self.save_path, filename)
+    
+    def isfile_in_data_or_save(self, file_name: str) -> bool | np.ndarray:
+        """
+        self.save_pathか、self.data_pathのどちらかにfilenameがあるかの確認。
+
+        Parameters
+        ----------
+        file_name : str
+            ファイルの名前
+
+        Returns
+        -------
+        issave_path or isdata_path
+            存在するかどうか。
+        path : str
+            self.save_pathか、self.data_path内のfilenameがある場合そのパスを返す。
+            ない場合、None
+        """
+        
+        if self.is_data_path and os.path.isfile(os.path.join(self.data_path, file_name)):
+            data:np.ndarray = np.load(os.path.join(self.data_path, file_name), allaw_pickle=True)
+        elif os.path.isfile(os.path.join(self.save_path, file_name)):
+            data: np.ndarray = np.load(os.path.join(self.save_path, file_name), allaw_pickle=True)
+        else:
+            data: np.ndarray = False
+        return data
 
 

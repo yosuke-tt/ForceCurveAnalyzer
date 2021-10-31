@@ -44,7 +44,7 @@ def data_statistics_deco(ds_dict):
                     continue
                 try:
                     d = np.array(d)
-                    np.save(self.ioPathes.save_name2path( dn), d)
+                    np.save(self.save_name2path( dn), d)
 
                     num_plot = len(stat_type)
                     min_idx = np.argsort(d.reshape(-1, 1))[1]
@@ -55,16 +55,16 @@ def data_statistics_deco(ds_dict):
                     vmax = np.nanmean(d) + 2 * data_std
                     d = np.nan_to_num(d, nan=vmin)
                     if "map_only" in stat_type:
-                        plt.imshow(d.reshape(self.meas_dict["map_shape"]),
+                        plt.imshow(d.reshape(self.measurament_dict["map_shape"]),
                                    vmin=vmin, vmax=vmax, cmap="Greys")
                         plt.colorbar()
-                        plt.savefig(self.ioPathes.save_name2path( dn))
+                        plt.savefig(self.save_name2path( dn))
                         plt.close()
                         num_plot -= 1
 
-                        plt.imshow(d.reshape(self.meas_dict["map_shape"]),vmin=vmin, vmax=vmax, cmap="seismic")
+                        plt.imshow(d.reshape(self.measurament_dict["map_shape"]),vmin=vmin, vmax=vmax, cmap="seismic")
                         plt.colorbar()
-                        plt.savefig(self.ioPathes.save_name2path(dn + "_colored"))
+                        plt.savefig(self.save_name2path(dn + "_colored"))
                         plt.close()
                     fig, ax = plt.subplots(
                         1, num_plot, figsize=(8 * num_plot, 5))
@@ -78,7 +78,7 @@ def data_statistics_deco(ds_dict):
                         data_median = np.nanmean(d)
                     if "map" in stat_type:
                         mapple = ax[i].imshow(
-                            d.reshape(self.meas_dict["map_shape"]), vmin=vmin, vmax=vmax, cmap="Greys")
+                            d.reshape(self.measurament_dict["map_shape"]), vmin=vmin, vmax=vmax, cmap="Greys")
                         plt.colorbar(mapple, ax=ax[i])
                         i += 1
                     if "hist" in stat_type:
@@ -91,7 +91,7 @@ def data_statistics_deco(ds_dict):
                         i += 1
                     ax[i // 2].set_title("{} ,max : {:6.2f}, min : {:6.2f}, mean : {:6.2f}, median : {:6.2f}".format(
                         dn, data_max, data_min, data_mean, data_median))
-                    plt.savefig(self.ioPathes.save_name2path( dn + "stat"))
+                    plt.savefig(self.save_name2path( dn + "stat"))
                     plt.close()
                 except TypeError:
                     print("data type error")

@@ -54,7 +54,7 @@ class MeasuramentParameters:
             else:
                 key = " ".join(l.split(" ")[:-1])
                 value = l.split(" ")[-1]
-            config_dict[key.rstrip(" ").lower()] = self.str2goodtype(key, "".join(value))
+            config_dict[key.rstrip(" ").lawer()] = self.str2goodtype(key, "".join(value))
             config_dict.update(self.config_overwite)
         config_dict["map_shape"] = (int(config_dict["xstep"]), int(config_dict["ystep"]))
 
