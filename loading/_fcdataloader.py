@@ -74,7 +74,6 @@ class FCDataLoader(FCBaseProcessor):
                 
             #補完するためのデータ作成。
             if complement:
-                
                 sample_data = np.loadtxt(numbering_str_list[-1])
                 data_length = int(re.findall("\\d+", os.path.basename(numbering_str_list[-1]))[0])
                 comp_data = np.ones(sample_data.shape) * -100
