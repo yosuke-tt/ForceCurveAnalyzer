@@ -18,17 +18,22 @@ class InvolsProcessing(FCBaseProcessor):
                  data_path : pathLike=None,
                  logfile: str = 'fitlog.log'
                  ):
-        super().__init__(save_path, measurament_dict,data_path, afm_param_dict, logfile)
+        super().__init__(save_path, measurament_dict, afm_param_dict,data_path, logfile)
 
-    def fit(self, def_app, z_app, complement_num):
+    def fit(self, def_app, z_app, missing_num, length_same=True):
         if self.save_name2path( "invols.npy"):
-
-            def_app_max = np.max(def_app, axis=1) * 0.99
-            def_app_min = np.max(def_app, axis=1) * 0.1
-
+            
+            if length_same:
+                def_app_max = np.max(def_app, axis=1) * 0.99
+                def_app_min = np.max(def_app, axis=1) * 0.1
+            else:
+                def_app_max = [ np.max(def_app_) * 0.99 for def_app_ in def_app ]
+                def_app_min =[ np.max(def_app_) * 0.1 for def_app_ in def_app ]
+            os.makedirs("da",exist_ok=True)
+            
             invols = [1e9 / (self.linefit(z[(d < d_th_max) & (d > d_th_min)], d[(d < d_th_max) & (d > d_th_min)])[1][0])
-                      for i, (d, d_th_max, d_th_min, z) in enumerate(zip(def_app, def_app_max, def_app_min, z_app))
-                      if not (i in complement_num)]
+                    for i, (d, d_th_max, d_th_min, z) in enumerate(zip(def_app, def_app_max, def_app_min, z_app))
+                    if not (i in missing_num)]
             invols_mean = np.mean(invols)
 
             plt.hist(invols, label="mean : {}\nmax : {}\nmin : {}".format(

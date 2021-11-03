@@ -22,12 +22,10 @@ class ContactPoint(FCBaseProcessor):
                  dist_basecp: int = 1000,
                  logfile: str = 'fitlog.log'
                 ) -> None:
-        super().__init__(save_path, measurament_dict,data_path, afmParam, logfile)
-
+        super().__init__(save_path, measurament_dict, afm_param_dict,data_path, logfile)
         self.cp_th = cp_th
         self.num_th = num_th
         self.fm_div = fm_div
-        self.dist_basecp = dist_basecp
 
     def get_cp_pre(self,
                    force_app: np.ndarray):
@@ -144,30 +142,51 @@ class ContactPoint(FCBaseProcessor):
         y0 = x0 * coeff1[0] + coeff1[1]
         return [x0, y0]
 
-    def cross_contactpoint(self, delta_app: np.ndarray, force_app: np.ndarray,
-                           line_fitted_data: np.ndarray) -> tuple(np.ndarray, np.ndarray):
+    def cross_contactpoint(self, 
+                           delta_app: np.ndarray, 
+                           force_app: np.ndarray,
+                           line_fitted_data: np.ndarray,
+                           cp_mean_num:int =10) -> tuple(np.ndarray, np.ndarray):
+        """二直線の交点によるコンタクトポイントを決定する関数。
 
-        if line_fitted_data[0] > 10:
+        Parameters
+        ----------
+        delta_app, force_app: np.ndarray, np.ndarray
+            押し込み両、力
+        
+        line_fitted_dat : np.ndarray
+            立ち上がりを線形フィッティングした結果。
+        
+        cp_mean_num: int, optional
+            ベースラインがデータとして少なすぎるものがある,その最低値 by default 10
 
-            cp_base = np.min([line_fitted_data[0], self.dist_basecp])
-            base_delta = delta_app[:cp_base]
-            base_force = force_app[:cp_base]
+        Returns
+        -------
+        [x0, y0] : list(float,float)
+            交点
+        """
+
+        if line_fitted_data[0] > cp_mean_num:
+
+            cp_base = np.min([line_fitted_data[0], cp_mean_num])
+            
+            #平均をとる範囲
+            #NOTE:なんか変 　
+            #(0~np.max([2,  cp_base-cp_mean_num]))~(0~np.max([cp_base, line_fitted_data[0]]))
             cp_base_range = np.arange(
-                np.max([2, -10 + cp_base]), np.max([10 + cp_base, line_fitted_data[0]]))
+                                        np.max([2,  cp_base-cp_mean_num]),#2点はないと直線fittingできないため。 
+                                        np.max([cp_base, line_fitted_data[0]]) #最大でも現時点のコンタクトポイントまで。
+                                    )
             base_fit_all = np.array([self.linefit(delta_app[:c], force_app[:c], cp=0)[1]
                                      for c in cp_base_range])
-
+            
+            #baselineの傾きを平均して決定。
             bfm = np.mean(base_fit_all[:, 0])
             base_fit = base_fit_all[np.argmin(np.abs(bfm - base_fit_all[:, 0]))]
             ic = self.intersection_cp(line_fitted_data[1:], base_fit)
-            th = 1e-11
-            for i in range(100):
-                cross_cp = np.where(np.abs(force_app - ic[1]) < th)[0]
-                if len(cross_cp) > 0:
-                    cross_cp = cross_cp[-1]
-                    break
-                else:
-                    th *= 2
+            #x方向はindexで決定。
+            #y方向は、その線形フィッティングしたものの最も近い(幅がthいない)
+            cross_cp = np.argmin(np.abs(force_app - ic[1]))
         else:
             base_fit = [0, 0]
             cross_cp = line_fitted_data[0]
@@ -242,7 +261,7 @@ class ContactPoint(FCBaseProcessor):
         self.line_fitted_data = self.isfile_in_data_or_save("linfitdata.npy")
         self.cross_cp = self.isfile_in_data_or_save("cross_cp.npy")
         self.contact = self.isfile_in_data_or_save("contact.npy")
-        if isinstance(self.line_fitted_data, bool) or isinstance(self.cross_cp, bool):
+        if True or isinstance(self.line_fitted_data, bool) or isinstance(self.cross_cp, bool):
             self.contact_search(delta_app, force_app, cp_pre)
         return self.line_fitted_data, self.cross_cp
     

@@ -1,5 +1,5 @@
 from ._fcdataloader import FCDataLoader
-from ._fcdirloader import LoadFCdirs
+from ._fcdirloader import load_fc_dirs
 
 __all__=["FCDataLoader",
-         "LoadFCdirs"]
+         "load_fc_dirs"]

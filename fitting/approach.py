@@ -26,7 +26,7 @@ class FCApproachAnalyzer(FCBaseProcessor):
                  data_path : pathLike=None,
                  logfile: str = 'fitlog.log',
                  ):
-        super().__init__(save_path, measurament_dict,data_path, afm_param_dict, logfile)
+        super().__init__(save_path, measurament_dict, afm_param_dict,data_path, logfile)
 
     def check_z(self, i, z):
         """
@@ -136,8 +136,9 @@ class FCApproachAnalyzer(FCBaseProcessor):
             logger=False):
         self.logger.debug("Started searching contact point")
         #TODO: ContactPoint分ける。GradientAdjasmentの分割
-        cp = ContactPoint(measurament_dict=self.measurament_dict, 
-                          save_path=self.save_path, 
+        print()
+        cp = ContactPoint(save_path=self.save_path, 
+                          measurament_dict=self.measurament_dict,
                           data_path=self.data_path, 
                           afm_param_dict=self.afm_param_dict)
 

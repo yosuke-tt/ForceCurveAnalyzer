@@ -2,8 +2,7 @@ from __future__ import annotations
 import os
 import re
 
-from dataclasses import dataclass
-
+from ..utils.typing import pathLike
 
 class MeasuramentParameters:
     config_dict_default: dict = {'zig': False, 
@@ -14,10 +13,12 @@ class MeasuramentParameters:
                                  'xstep': 20,
                                  'ystep': 20,
                                  'xstep count': 0, 
-                                 'ystep count': 0}
+                                 'ystep count': 0,
+                                 'map_shape' : [20,20],
+                                 "all_length":24000 
+                                 }
 
-    def __init__(self, fc_path: str, config_overwite: dict = {}) -> None:
-        self.fc_path = fc_path
+    def __init__(self, config_overwite: dict = {}) -> None:
         self.config_overwite = config_overwite
 
     def str2goodtype(self, key: str, value: str) -> float | bool | list:
@@ -61,19 +62,23 @@ class MeasuramentParameters:
         config_dict["all_length"] = int(config_dict["app_points"]) + int(config_dict['ret_points'])
         return config_dict
     
-    def load_measurament_config(self, config_path: str = "config.txt") -> dict:
+    def load_measurament_config(self, save_dir_name:pathLike, config_path: str = "config.txt") -> dict:
+        
         import pickle
         if not os.path.isfile("config_dict.pkl"):
             try:
-                with open(os.path.join(self.fc_path, config_path), "r", encoding="utf-8") as f:
+                with open(os.path.join(save_dir_name, config_path), "r", encoding="utf-8") as f:
                     config_dict = self.config_file2dict(f)
             except UnicodeDecodeError:
-                with open(os.path.join(self.fc_path, config_path), "r", encoding="shift-jis") as f:
+                with open(os.path.join(save_dir_name, config_path), "r", encoding="shift-jis") as f:
                     config_dict = self.config_file2dict(f)
-            with open(os.path.join(self.fc_path, "config_dict.pkl"), "wb") as tf:
+            except FileNotFoundError:
+                config_dict = self.config_dict_default
+                
+            with open(os.path.join(save_dir_name, "config_dict.pkl"), "wb") as tf:
                 pickle.dump(config_dict, tf)
         else:
-            with open(os.path.join(self.fc_path, "config_dict.pkl"), "wb") as tf:
+            with open(os.path.join(save_dir_name, "config_dict.pkl"), "wb") as tf:
                 config_dict = pickle.load(tf)
 
         return config_dict

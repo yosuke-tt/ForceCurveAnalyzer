@@ -20,13 +20,7 @@ from logging import getLogger, Formatter, FileHandler, DEBUG, INFO
 
 pathLike = Union[str, bytes, os.PathLike, None]
 
-afm_param_dict = {
-    "sampling_rate" : 5e4,
-    "k"             : 0.07,
-    "poission_ratio": 0.5,
-    "bead_ratio"    : 5e-6,
-    "theta"         : 17.5
-} 
+ 
 
     
 
@@ -34,18 +28,16 @@ class FCBaseProcessor(metaclass=ABCMeta):
     def __init__(self,
                  save_path       : pathLike,
                  measurament_dict: dict,
+                 afm_param_dict  : dict[str,float],
                  data_path       : pathLike=None,
-                 afm_param_dict  : dict[str,float] = afm_param_dict,
                  logfile         : str = 'fitlog.log'
                  ) -> None:
 
         self.measurament_dict:dict = measurament_dict
         self.save_path = save_path
         self.data_path = data_path
-        self.is_data_path :bool = (not self.data_path) and os.path.isdir(self.data_path)
+        self.is_data_path :bool = self.data_path and os.path.isdir(self.data_path)
         self.afm_param_dict : dict[str,float]= afm_param_dict
-        self.afm_param_dict["tan_theta"] = np.tan(self.afm_param_dict["theta"])
-        self.afm_param_dict["t_dash"] = 1 / self.afm_param_dict["sampling_rate"]
         self.logger = self.setup_logger(self.save_name2path(logfile))
     
         
@@ -187,9 +179,9 @@ class FCBaseProcessor(metaclass=ABCMeta):
         """
         
         if self.is_data_path and os.path.isfile(os.path.join(self.data_path, file_name)):
-            data:np.ndarray = np.load(os.path.join(self.data_path, file_name), allaw_pickle=True)
+            data:np.ndarray = np.load(os.path.join(self.data_path, file_name), allow_pickle=True)
         elif os.path.isfile(os.path.join(self.save_path, file_name)):
-            data: np.ndarray = np.load(os.path.join(self.save_path, file_name), allaw_pickle=True)
+            data: np.ndarray = np.load(os.path.join(self.save_path, file_name), allow_pickle=True)
         else:
             data: np.ndarray = False
         return data
