@@ -202,7 +202,6 @@ class FCDataLoader(FCBaseProcessor):
                 self.missing_num = np.load(os.path.join(self.save_path,"missing_num.txt"))
             else:
                 self.missing_num=[]
-                
         self.length_same=self.is_length_same(fc_row_data, length_strict)
         if len(fc_row_data) != self.measurament_dict["map_shape"][0] * self.measurament_dict["map_shape"][1]:
             am = self.measurament_dict["map_shape"]
@@ -247,7 +246,6 @@ class FCDataLoader(FCBaseProcessor):
         else:
             deflection = np.array([ fc[:int(len(fc)/2)]for fc in fc_row_data],dtype=object)
             zsensor = np.array([ fc[int(len(fc)/2):int(len(fc))]for fc in fc_row_data],dtype=object)* 30e-6
-
         if fc_img:
             self.im_def_z_row(self.save_path,deflection, zsensor)
         return deflection, zsensor

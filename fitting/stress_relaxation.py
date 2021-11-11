@@ -33,12 +33,13 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
                  afm_param_dict: dict[str,float],
                  data_path : pathLike=None,
                  logfile: str = 'fitlog.log',
-                 invols=200
+                 invols=200,
+                 sr_length=50000
                  ):
         super().__init__(save_path, measurament_dict,data_path, afm_param_dict, logfile)
         warnings.simplefilter('ignore')
         self.invols = invols
-        self.sr_length = 50000
+        self.sr_length = sr_length
 
     def set_cp(self, data, cp):
         """

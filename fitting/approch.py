@@ -10,25 +10,25 @@ from ._base_analyzer import *
 from ..utils.fc_helper import *
 
 
-class ContactPoint(FCBaseProcessor):
+class FCApproachAnalyzer(FCBaseProcessor):
     def __init__(self,
                  measurament_dict: dict,
                  afm_param_dict: dict[str,float],
-                 cp_th: float = 0.1,
-                 num_th: int = 1000,
-                 fm_div: float = 1e-11,
                  save_path: str = "./",
                  data_path: str = "",
                  dist_basecp: int = 1000,
                  logfile: str = 'fitlog.log'
                 ) -> None:
         super().__init__(save_path, measurament_dict, afm_param_dict,data_path, logfile)
-        self.cp_th = cp_th
-        self.num_th = num_th
-        self.fm_div = fm_div
 
     def get_cp_pre(self,
-                   force_app: np.ndarray):
+                   force_app: np.ndarray,
+                   fm_div:float = 1e-11,
+                   num_th:int = 1000,
+                   cp_th: float = 0.1,
+                   minimum_length = 4,
+
+                   ):
         """
         コンタクトポイントの候補を決める関数。
 
@@ -44,52 +44,32 @@ class ContactPoint(FCBaseProcessor):
         """
         fmax = np.array([np.max(fa) for fa in force_app])
         fmin = np.array([np.min(fa) for fa in force_app])
-        cp_pre_th_e = fmin.reshape(-1, 1) + \
-            ((fmax - fmin) * self.cp_th).reshape(-1, 1)
+        
+        # 最大最小の幅の、割合から、コンタクトポイント決定のための最低値を決定。
+        cp_pre_th_e = fmin.reshape(-1, 1) + ((fmax - fmin) * cp_th).reshape(-1, 1)
+        
+        # 上で決定した値以下の中での最大値(最も下から考えたときに近い)のidx
         cp_pre_th_e = np.array([np.where(f < c)[0][-1]
                                 if len(np.where(f < c)[0]) > 1
                                 else 0
                                 for f, c in zip(force_app, cp_pre_th_e)])
-        cp_pre = [[np.max([np.where(f < fm + self.fm_div)[0][-1], 0]), np.max([c, 4])]
-                  if np.where(f < fm + self.fm_div)[0][-1] < c - self.num_th
-                  else [np.max([c - self.num_th, 0]), np.max([c, 4])]
-                  for f, fm, c in zip(force_app, fmin, cp_pre_th_e)]
+        # (負にならない)コンタクトポイントの探索幅の下側の決定。
+        # 最小値からちょっと上。fm_div
+        # コンタクトポイントの探索幅の上側の決定。
+        # 上で決めたやつ
+        cp_pre = [
+                    [
+                        np.max([np.where(f < fm + fm_div)[0][-1], 0]), 
+                        np.max([c, minimum_length])
+                    ]
+                  if np.where(f < fm + fm_div)[0][-1] < c - num_th
+                  else [np.max([c - num_th, 0]), np.max([c, minimum_length])]
+                  for f, fm, c in zip(force_app, fmin, cp_pre_th_e)
+                ]
+
         return cp_pre
 
-    def linefit(self,
-                x: np.ndarray,
-                y: np.ndarray,
-                cp: int = 0,
-                d: int = 1) -> tuple(float, list(float, ...)) | list(float, ...):
-        """
-        線形フィッティングの関数
 
-        Parameters
-        ----------
-        x : arr_like
-            x軸のデータ
-        y : arr_like
-            y軸のデータ
-        cp : int
-            コンタクトポイント
-        d : int, optional
-            次元, by default 1
-
-        Returns
-        -------
-        residuals:float
-            残差
-        [a,b]:list[float, float]
-            線形回帰の係数
-        """
-
-        coeffs = np.polyfit(x[cp:], y[cp:], d)
-
-        if d == 1:
-            residuals = np.mean(abs(y[cp:] - (x[cp:] * coeffs[0] + coeffs[1])))
-            return residuals, [*coeffs]
-        else:
-            return [*coeffs]
 
     def noisy_linefit(self, x: list, y: list, cp: list, d=1) -> tuple(float, list(float, ...)):
         """
@@ -246,8 +226,57 @@ class ContactPoint(FCBaseProcessor):
                 self.line_fitted_data[:, 0])
         np.save(self.save_name2path( "cross_cp.npy"),
                 self.cross_cp)
+    
 
-    def fit(self, delta_app: np.ndarray, force_app: np.ndarray, plot: bool = False):
+    def fit_hertz_E(self, a_fit=None):
+        """
+        線形フィットしたデータからヤング率を求める関数
+        Parameters:
+        a_fit : float
+            線形近似によるパラメータ
+        """
+        para = (4 * self.afm_param_dict["bead_radias"]**0.5) \
+                / (3 * (1 - self.afm_param_dict["poission_ratio"]**2))
+        self.E_hertz = (1 / para) * (a_fit**(3 / 2))
+        return self.E_hertz
+
+    @data_statistics_deco(ds_dict={"data_name": "YoungE"})
+    def get_E(self):
+        E = self.fit_hertz_E(self.line_fitted_data[:, 1])
+        return np.array(E)
+
+    @data_statistics_deco(ds_dict={"data_name": "cross_topo_contact"})
+    def get_cross_topo(self, zsensor, cross_cp):
+        topo = np.array([z[int(c)] if isinstance(c, int) else z[0]
+                        for z, c in zip(zsensor, cross_cp)]).reshape(self.measurament_dict["map_shape"])
+                
+        return self.topo_contact
+
+    @data_statistics_deco(ds_dict={"data_name": "topo_contact"})
+    def get_topo_img(self, zsensor, contact):
+        """
+        トポグラフィー像の取得
+
+        Parameters
+        ----------
+        zsensor : arr_like
+            zセンサー値
+        contact : arr_like
+            コンタクトポイント
+        topo_trig : bool
+            トリガー電圧でのトポグラフィー像
+        topo_contact : bool
+            コンタクトポイントでのトポグラフィー像
+        """
+        self.topo_contact = np.array([z[c] for z, c in zip(zsensor, contact)]).reshape(self.measurament_dict["map_shape"])
+        return self.topo_contact
+
+    def fit(self, 
+            delta_app: np.ndarray, 
+            force_app: np.ndarray, 
+            zsensor,
+            cp_kargs={},
+            plot: bool = False):
         """
         コンタクトポイントを取得する関数
         Returns
@@ -255,14 +284,21 @@ class ContactPoint(FCBaseProcessor):
         line_fitted_data:arr_like
             [コンタクトポイント, 傾き, 切片]
         """
-        cp_pre = self.get_cp_pre(force_app)
+        cp_pre = self.get_cp_pre(force_app, )
         self.i = 0
         self.tk = TimeKeeper(len(force_app))
         self.line_fitted_data = self.isfile_in_data_or_save("linfitdata.npy")
         self.cross_cp = self.isfile_in_data_or_save("cross_cp.npy")
         self.contact = self.isfile_in_data_or_save("contact.npy")
-        if True or isinstance(self.line_fitted_data, bool) or isinstance(self.cross_cp, bool):
+        if isinstance(self.line_fitted_data, bool) or isinstance(self.cross_cp, bool):
             self.contact_search(delta_app, force_app, cp_pre)
+        self.E = self.get_E()
+        self.contact = np.array(self.line_fitted_data[:, 0], dtype=np.int32)
+        np.save(self.save_name2path("contact"), self.contact)
+
+        self.topo_contact = self.get_topo_img(zsensor, self.contact)
+        self.get_cross_topo(zsensor, self.cross_cp[:, 0])
+
         return self.line_fitted_data, self.cross_cp
     
     @staticmethod
@@ -293,5 +329,4 @@ if __name__ == "__main__":
     force_app = np.load("contact/force_app.npy")
     delta_app = np.load("contact/delta_app.npy")
 
-    cp = ContactPotint()
     # cp.get_cp(delta_app, force_app, plot=True)

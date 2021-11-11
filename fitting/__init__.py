@@ -8,10 +8,11 @@ from .gradientAdjsutment import GradientAdjsutment
 
 
 
-__all__ = ["FitFC2Ting",
+__all__ = ["FCBaseProcessor",
+           "FitFC2Ting",
            "FCApproachAnalyzer",
            "StressRelaxationPreprocessor",
            "InvolsProcessing",
            "GradientAdjsutment",
            "ContactPoint",
-           "FCBaseProcessor"]
+           ]

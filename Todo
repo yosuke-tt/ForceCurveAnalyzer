@@ -1,0 +1,38 @@
+FIXME: 
+    polygon_edgeの三角形切るところ。距離順ソート
+    Stressが使えるかわからん。大幅な変更に伴い適当に合わせた。
+    check_zはやばい良くない。
+    data_loaderは、overloadでfctype決める.今のやり方よくない。
+    BaseFCAnalyzerが重すぎヤバイ。
+
+TODO:
+    READMEで使用法を行う。
+    StressRelaxationの無駄が多すぎるやばめ。
+    dirloaderは、くらすにしなくてもいいんじゃん？
+    
+    ヤング率系の関数がまとまってない。これは、外部にファイル作って参照がいいなあ。
+
+    関す内のself多すぎ。classmethod, staticmethodを分ける。
+    画像のやつまとめ
+    
+    approchは必ずやるからBaseに入れてもいい気がする。
+    TingとStress
+    approachの扱い(cp)
+    approachの扱いとTing
+
+    cross_cpとcpを分ける。
+
+    save, load, force, is_plotを一つの関数で実現する=>でこ？じゃなくていい(data_staticsの機能追加)
+    
+    kargsでfit関数の中身関数を変更可能に
+    cross_cpとcpを分ける。
+    Cythonの導入
+    データ長固定する方法=>np.nanでどうにか・・・
+    __init__整理
+    いらないmodule削除
+    utilsを使いやすく。
+    コメント整備(型アノテーションを含む)
+    応力緩和ヤバイは、まじ
+
+    
+    

@@ -28,56 +28,6 @@ class FCApproachAnalyzer(FCBaseProcessor):
                  ):
         super().__init__(save_path, measurament_dict, afm_param_dict,data_path, logfile)
 
-    def check_z(self, i, z):
-        """
-        zsensorが二段階に曲がる時に変更する
-
-        Parameters
-        ----------
-        i : int
-            データの番号
-        z : np.ndarray
-            zsensor
-
-        Returns
-        -------
-        z_r : np.ndarray
-            チェックしたデータ
-        """
-        if z[0] > z[self.measurament_dict["app_points"]]:
-            min_leftidx = np.argmin(z[:self.measurament_dict["app_points"]])
-            z_left = (z[self.measurament_dict["app_points"]] - z[min_leftidx]) * (np.arange(0, min_leftidx) - \
-                      min_leftidx) / (self.measurament_dict["app_points"] - min_leftidx) + z[min_leftidx]
-            z_r = np.hstack([z_left, z[min_leftidx:]])
-            try:
-                with open(self.save_name2path( "ForceCurve/ForceCurve_{:>03}_zchanged.txt".format(i)), "w") as f:
-                    print(z_r, file=f)
-                plt.plot(z_r)
-                plt.savefig(self.save_name2path("ForceCurve/ForceCurve_{:>03}_zchanged".format(i)))
-                plt.close()
-            except FileNotFoundError:
-                with open(self.save_name2path("ForceCurve_{:>03}_zchanged.txt".format(i)), "w") as f:
-                    print(z_r, file=f)
-                plt.plot(z_r)
-                plt.savefig(self.save_name2path("ForceCurve_{:>03}_zchanged".format(i)))
-                plt.close()
-        else:
-            z_r = z
-        return z_r
-
-    def set_zbase(self):
-        """
-        zセンサーの基準値を端の最大値に合わせる
-        """
-        # カンチレバーのZを基準からにする。
-        z_base = np.array([np.max([z[0], z[-1]])
-                          for z in self.zsensor]).reshape(-1, 1)
-
-        # z_base = np.array([ z[0] for z in self.zsensor]).reshape(-1,1)
-        self.zsensor -= z_base
-        self.zsensor = np.array([self.check_z(i, zz)
-                                for i, zz in enumerate(self.zsensor - z_base)])
-        return self.zsensor
 
     def fit_hertz_E(self, a_fit=None):
         """

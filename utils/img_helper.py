@@ -9,7 +9,6 @@ from numpy.core.fromnumeric import trace
 import seaborn as sns
 
 from .typing import pathLike
-from ..fitting._base_analyzer import FCBaseProcessor
 
 
 def cut_cross_section(img        :np.ndarray,
@@ -20,6 +19,7 @@ def cut_cross_section(img        :np.ndarray,
                       img_name   :str        = "cross_section",
                       data_annot :bool       = False):
     """画像をある断面のデータを取得する関数。  
+    ***edge_pointsの形式ちがうごめんなさい。
     Parameters
     ----------
     img : np.ndarray
@@ -30,7 +30,9 @@ def cut_cross_section(img        :np.ndarray,
 
     """
     if edge_points[0][0]!=edge_points[0][1]:
-        coeffs = FCBaseProcessor.linefit(edge_points[0],edge_points[1],d="easy_fit")
+        
+
+        coeffs = linefit_easy_fit(edge_points[0],edge_points[1]) #FIXME:circular import 対策
         x_data = np.arange(0, len(img), 1 / (len(img)+1))
         y_data = x_data*coeffs[0]+coeffs[1]
     elif edge_points[0][0]==edge_points[0][1]:
@@ -47,13 +49,29 @@ def cut_cross_section(img        :np.ndarray,
             ax.invert_yaxis()
         else:
             ax.imshow(img,origin="lower",cmap="Greys")
-        plt.savefig(os.path.join(save_path,f"{img_name}_x_{edge_points[0][0]}__{edge_points[0][1]}_y_{edge_points[1][0]}_{edge_points[1][1]}"))
+        ax.set_xticklabels(ax.get_xticks(),fontsize=20)
+        ax.set_yticklabels(ax.get_yticks(),fontsize=20)
+        
+        edge_points_s = [
+            str(edge_points[0][0]).replace(".","p"),
+            str(edge_points[0][1]).replace(".","p"),
+            str(edge_points[1][0]).replace(".","p"),
+            str(edge_points[1][1]).replace(".","p"),
+                            ]
+        plt.savefig(os.path.join(save_path,f"{img_name}_x_{edge_points_s[0]}__{edge_points_s[1]}_y_{edge_points_s[2]}_{edge_points_s[3]}"))
     img_idx = (x_data>=np.min(edge_points[0]))& (x_data<=np.max(edge_points[0]))& (y_data<=np.max(edge_points[1]))& (y_data>=np.min(edge_points[1]))
 
     x_data = np.int32(x_data[img_idx]+0.5)
     y_data = np.int32(y_data[img_idx]+0.5)
 
     cross_section_idx : np.ndarray = np.unique(np.vstack([x_data, y_data]).T, axis=0)
+    cross_section_idx = cross_section_idx[
+                                        (0<=cross_section_idx[:,0]) &\
+                                        (img.shape[0]>cross_section_idx[:,0]) &\
+                                        (0<=cross_section_idx[:,1]) &\
+                                        (img.shape[1]>cross_section_idx[:,1])                                        
+                                          ]
+
     cross_section     : np.ndarray = img[cross_section_idx[:,1],cross_section_idx[:,0]]
     return cross_section, cross_section_idx
 
@@ -97,7 +115,9 @@ def get_region(data     :np.ndarray,
                add_points:list[list[int,int]]          =[],
                save_path :str                          = ""):
     """領域をとる関数。
-
+    FIXME:
+        バグあり＾polygon_edge_points
+        三角に切るときに距離順にする必要ある。今は、気休め距離
     Parameters
     ----------
     data : np.ndarray
@@ -129,7 +149,13 @@ def get_region(data     :np.ndarray,
     
     mask = np.zeros(data.shape,dtype=float)
     if len(polygon_edge_points)>0:
+        import pandas as pd #numpyで簡単にやれればなあ
+        
         for polygon_edge_point in polygon_edge_points:
+            polygon_edge_point=np.array(polygon_edge_point)
+            polygon_edge_point_sort_idx=np.argsort(np.sum(np.abs(polygon_edge_point-polygon_edge_point[0]),axis=1))
+            polygon_edge_point = polygon_edge_point[polygon_edge_point_sort_idx]
+
             triangle_idx = cut_polygon2_triangle(len(polygon_edge_point))
             triangle_points = np.array([np.array(polygon_edge_point)[tidx] for tidx in triangle_idx])
             e_idx =np.vstack([
@@ -185,7 +211,7 @@ def get_region(data     :np.ndarray,
     print(add_points)
     if len(add_points)>0 and len(extract_idx)>0:
         extract_idx=np.vstack([extract_idx,add_points])
-    else:
+    elif len(add_points)>0:
         extract_idx=add_points
     print("add_points")
     print(extract_idx)
@@ -217,3 +243,8 @@ def get_region(data     :np.ndarray,
     plt.close()
     return extract_data,extract_idx
     
+def linefit_easy_fit(x,y,cp=0):    
+    a = (y[cp:][-1] - y[cp:][0]) / (x[cp:][-1] - x[cp:][0])
+    b = y[cp:][-1] - x[cp:][-1] * a
+    coeffs = [a, b]
+    return coeffs
