@@ -35,7 +35,6 @@ class FCBaseProcessor(metaclass=ABCMeta):
                  data_path       : pathLike=None,
                  logfile         : str = 'fitlog.log',
                  invols          : float = 200
-                 
                  ) -> None:
 
         self.measurament_dict:dict     = measurament_dict
@@ -47,7 +46,11 @@ class FCBaseProcessor(metaclass=ABCMeta):
         self.invols = invols
         self.K = self.invols*1e-9*self.afm_param_dict["k"]
         self.Hertz = True
-        
+
+    @abstractmethod
+    def load_data():
+        pass
+    
     @abstractmethod
     def fit():
         pass
@@ -234,7 +237,6 @@ class FCBaseProcessor(metaclass=ABCMeta):
                 sample_data = np.loadtxt(numbering_str_list[-1])
                 data_length = int(re.findall("\\d+", os.path.basename(numbering_str_list[-1]))[0])
                 comp_data = np.ones(sample_data.shape) * comp_value
-
             
             numbering_list = [ int(re.findall("\\d+", os.path.basename(ns))[0]) 
                   for ns in numbering_str_list]
@@ -250,7 +252,6 @@ class FCBaseProcessor(metaclass=ABCMeta):
                                                 "ForceCurve_{:>03}.lvm".format(i)
                                             ), comp_data) 
                         for i in missing_number]    
-                       
                     missing_number_str_list = [
                                                 os.path.join(dir_name, "ForceCurve_{:>03}.lvm".format(i)) 
                                                 for i in missing_number
@@ -540,41 +541,4 @@ class FCBaseProcessor(metaclass=ABCMeta):
             app_data = [ d[:int(len(d)/2)] for d in data]
             ret_data = [ d[int(len(d)/2):] for d in data]
             return app_data, ret_data
-            
-    def load_data(self, fc_path, invols=200, fc_type="fc", load_row_fc_kargs={}):
-        self.invols=invols#著とヤバイ
-        if  not fc_type in ["fc","inv","sr"]:
-            raise ValueError("fc_type must be  fc or inv or sr")
         
-        map_shape_square_strict = fc_type != "inv" #良くない！
-        self.measurament_dict["zig"]=  False if fc_type == "inv" else self.measurament_dict["zig"]
-
-        fc_row_data = self.load_row_fc(fc_path=fc_path, 
-                                       map_shape_square_strict=map_shape_square_strict,
-                                       complement=True,
-                                       **load_row_fc_kargs)
-        self.deflection, self.zsensor = self.split_def_z(fc_row_data)
-        self.deflection_row = self.deflection
-        del fc_row_data
-
-        self.deflection = self.set_deflectionbase()
-        self.delta = self.get_indentaion()
-        self.force = self.def2force()
-        if fc_type == "fc":
-            delta_app, delta_ret = self.split_app_ret(self.delta)
-            force_app, force_ret = self.split_app_ret(self.force)
-            data = ((delta_app, delta_ret), (force_app, force_ret), self.zsensor)
-        elif fc_type == "inv":
-            def_app, def_ret = self.split_app_ret(self.deflection)
-            z_app, z_ret = self.split_app_ret(self.zsensor)
-            data = ((def_app, def_ret), (z_app, z_ret))
-        elif fc_type == "sr":
-            # 応力緩和用
-            # def_app, def_sr, def_ret       = self.sep_srdata(self.deflection)
-            # z_app, z_sr, z_ret             = self.sep_srdata(self.zsensor)
-            delta_app, delta_sr, delta_ret = self.sep_srdata(self.delta)
-            force_app, force_sr, force_ret = self.sep_srdata(self.force)
-            data = ((delta_app, delta_sr, delta_ret), (force_app, force_sr, force_ret), self.zsensor)
-        else:
-            pass
-        return data, self.missing_num, self.length_same #なんかよくない気がする。

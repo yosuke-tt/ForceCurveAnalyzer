@@ -53,6 +53,27 @@ class InvolsProcessing(FCBaseProcessor):
                 invols_mean = 200
         return invols_mean
 
+    def load_data(self, fc_path,  load_row_fc_kargs={}):
+        map_shape_square_strict = False 
+        self.measurament_dict["zig"]=  False 
+
+        fc_row_data = self.load_row_fc(fc_path=fc_path, 
+                                       map_shape_square_strict=map_shape_square_strict,
+                                       complement=True,
+                                       **load_row_fc_kargs)
+        
+        self.deflection, self.zsensor = self.split_def_z(fc_row_data)
+        self.deflection_row = self.deflection
+        del fc_row_data
+
+        self.deflection = self.set_deflectionbase()
+        self.delta = self.get_indentaion()
+        self.force = self.def2force()
+        
+        def_app, def_ret = self.split_app_ret(self.deflection)
+        z_app, z_ret = self.split_app_ret(self.zsensor)
+        data = ((def_app, def_ret), (z_app, z_ret))
+        return data, self.missing_num, self.length_same #なんかよくない気がする。
 
 if __name__ == "__main__":
     f = "../data_20210222/data_210542_invols"

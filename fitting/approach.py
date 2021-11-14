@@ -18,7 +18,6 @@ class FCApproachAnalyzer(FCBaseProcessor):
                  afm_param_dict: dict[str,float],
                  save_path: str = "./",
                  data_path: str = "",
-                 dist_basecp: int = 1000,
                  logfile: str = 'fitlog.log',
                  invols : float = 200
                 ) -> None:
@@ -322,8 +321,7 @@ class FCApproachAnalyzer(FCBaseProcessor):
         return self.line_fitted_data, self.cross_cp
     
     @staticmethod
-    def set_cp(cls,
-               app_data: np.ndarray,
+    def set_cp(app_data: np.ndarray,
                cp      : list):
         """
         コンタクトポイントを基準にしたデータに変換する。
@@ -341,6 +339,25 @@ class FCApproachAnalyzer(FCBaseProcessor):
         """
         data_cp = np.array([d[cp:]-d[cp] for d, cp in zip(app_data, cp)])
         return data_cp
+                
+    def load_data(self, fc_path, load_row_fc_kargs={}):
+        
+        fc_row_data = self.load_row_fc(fc_path=fc_path, 
+                                       map_shape_square_strict=True,
+                                       complement=True,
+                                       **load_row_fc_kargs)
+        self.deflection, self.zsensor = self.split_def_z(fc_row_data)
+        self.deflection_row = self.deflection
+        del fc_row_data
+        self.deflection = self.set_deflectionbase()
+        self.delta = self.get_indentaion()
+        self.force = self.def2force()
+        delta_app, delta_ret = self.split_app_ret(self.delta)
+        force_app, force_ret = self.split_app_ret(self.force)
+        data = ((delta_app, delta_ret), (force_app, force_ret), self.zsensor)
+
+        return data, self.missing_num, self.length_same #なんかよくない気がする。
+
 
 
 
