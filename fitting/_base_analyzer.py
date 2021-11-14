@@ -38,11 +38,11 @@ class FCBaseProcessor(metaclass=ABCMeta):
                  
                  ) -> None:
 
-        self.measurament_dict:dict = measurament_dict
-        self.save_path = save_path
-        self.data_path = data_path
-        self.is_data_path :bool = self.data_path and os.path.isdir(self.data_path)
-        self.afm_param_dict : dict[str,float]= afm_param_dict
+        self.measurament_dict:dict     = measurament_dict
+        self.save_path       :pathLike = save_path
+        self.data_path       :pathLike = data_path
+        self.is_data_path    :bool     = self.data_path and os.path.isdir(self.data_path)
+        self.afm_param_dict  : dict[str,float] = afm_param_dict
         self.logger = self.setup_logger(self.save_name2path(logfile))
         self.invols = invols
         self.K = self.invols*1e-9*self.afm_param_dict["k"]

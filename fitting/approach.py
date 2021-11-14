@@ -255,18 +255,6 @@ class FCApproachAnalyzer(FCBaseProcessor):
                 self.cross_cp)
     
 
-    def fit_hertz_E(self, a_fit=None):
-        """
-        線形フィットしたデータからヤング率を求める関数
-        Parameters:
-        a_fit : float
-            線形近似によるパラメータ
-        """
-        para = (4 * self.afm_param_dict["bead_radias"]**0.5) \
-                / (3 * (1 - self.afm_param_dict["poission_ratio"]**2))
-        self.E_hertz = (1 / para) * (a_fit**(3 / 2))
-        return self.E_hertz
-
     @data_statistics_deco(ds_dict={"data_name": "YoungE"})
     def get_E(self):
         E = fit_hertz_E(
