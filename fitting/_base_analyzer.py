@@ -33,7 +33,9 @@ class FCBaseProcessor(metaclass=ABCMeta):
                  measurament_dict: dict,
                  afm_param_dict  : dict[str,float],
                  data_path       : pathLike=None,
-                 logfile         : str = 'fitlog.log'
+                 logfile         : str = 'fitlog.log',
+                 invols          : float = 200
+                 
                  ) -> None:
 
         self.measurament_dict:dict = measurament_dict
@@ -42,7 +44,9 @@ class FCBaseProcessor(metaclass=ABCMeta):
         self.is_data_path :bool = self.data_path and os.path.isdir(self.data_path)
         self.afm_param_dict : dict[str,float]= afm_param_dict
         self.logger = self.setup_logger(self.save_name2path(logfile))
-    
+        self.invols = invols
+        self.K = self.invols*1e-9*self.afm_param_dict["k"]
+        self.Hertz = True
         
     @abstractmethod
     def fit():
@@ -537,8 +541,8 @@ class FCBaseProcessor(metaclass=ABCMeta):
             ret_data = [ d[int(len(d)/2):] for d in data]
             return app_data, ret_data
             
-    def load_data(self, fc_path, fc_type="fc",load_row_fc_kargs={}):
-
+    def load_data(self, fc_path, invols=200, fc_type="fc", load_row_fc_kargs={}):
+        self.invols=invols#著とヤバイ
         if  not fc_type in ["fc","inv","sr"]:
             raise ValueError("fc_type must be  fc or inv or sr")
         

@@ -9,6 +9,8 @@ from ..utils.TimeKeeper import TimeKeeper
 from ._base_analyzer import *
 from ..utils.fc_helper import *
 
+from .hertz_contact_model import *
+
 
 class FCApproachAnalyzer(FCBaseProcessor):
     def __init__(self,
@@ -17,9 +19,10 @@ class FCApproachAnalyzer(FCBaseProcessor):
                  save_path: str = "./",
                  data_path: str = "",
                  dist_basecp: int = 1000,
-                 logfile: str = 'fitlog.log'
+                 logfile: str = 'fitlog.log',
+                 invols : float = 200
                 ) -> None:
-        super().__init__(save_path, measurament_dict, afm_param_dict,data_path, logfile)
+        super().__init__(save_path, measurament_dict, afm_param_dict,data_path, logfile, invols)
 
     def get_cp_pre(self,
                    force_app: np.ndarray,
@@ -172,9 +175,13 @@ class FCApproachAnalyzer(FCBaseProcessor):
             cross_cp = line_fitted_data[0]
         return cross_cp, base_fit
 
-    def search_cp(self, x: list, y: list, cps: list, is_plot: bool = False):
+    def search_cp(self, x: list, 
+                        y: list,
+                        cps: list,
+                        is_plot: bool = False,
+                        ratio_th : float = 0.05):
         """
-        コンタクトポイントの候補から真のコンタクトポイントを決定する関数。
+        コンタクトポイントの候補からコンタクトポイントを決定する関数。
         Parameters
         ----------
         x : arr_like
@@ -182,7 +189,9 @@ class FCApproachAnalyzer(FCBaseProcessor):
             線形フィッティングするxyデータ
         cps : list
             コンタクトポイントの候補
-
+        ratio_th: float , optional
+            コンタクトポイントの候補がデータ点数に対して大きい場合noisyfitに変更する。
+            その割合の閾値
         Returns
         -------
         [cp, coeffs[0], coeffs[1]]
@@ -190,30 +199,48 @@ class FCApproachAnalyzer(FCBaseProcessor):
         """
 
         ratio = (len(x) - cps[1]) / len(x)
-        if ratio > 0.05:
+
+        if ratio > ratio_th:
+            #後方の中をすべて線形fittingして最小値をコンタクトポイントとする。
             d = np.array([self.linefit(x, y, cp)
                          for cp in range(cps[0], cps[1])], dtype=object)
             d_idx = np.argmin(d[:, 0])
             cp = int(cps[0] + d_idx)
             coeffs = d[d_idx, 1]
         else:
+            #なんで必要かちょっと忘れた。
             cp = np.where(y < np.median(
-                y[:100]) + (np.max(y) - np.median(y[:100])) * 0.1)[0][-1]
+                    y[:100]) + (np.max(y) - np.median(y[:100])
+                ) * 0.1)[0][-1]
             res, coeffs = self.noisy_linefit(x, y, cp)
+        
         line_fitted_data = [int(cp), coeffs[0], coeffs[1]]
-
+        
+        #分離した方がいいかもしれんな
         cc, base_fit = self.cross_contactpoint(x, y, line_fitted_data)
-
+        
         if cc > cp or coeffs[0] < base_fit[0]:
             cc = cp
         if is_plot:
             plot_contact(self.save_path,self.i, x, y, line_fitted_data,[cc, *base_fit], cps)
         self.tk.timeshow()
-        self.i += 1
         return [line_fitted_data, [cc, *base_fit]]
 
-    def contact_search(self, delta_app, force_app, cp_pre):
+    def contact_search(self, 
+                        delta_app, 
+                        force_app,
+                        cp_pre):
+        """cp_pre（コンタクトポイントの候補から、）
 
+        Parameters
+        ----------
+        delta_app : arr-like
+            押し込み両あっぽ
+        force_app : arr-like
+            押し込みフォースあっぽ
+        cp_pre : list
+            ｃｐ候補
+        """
         scp = np.array([self.search_cp(d, f, cps)
                         for d, f, cps in zip(delta_app, (np.array(force_app)**2)**(1 / 3), cp_pre)])
 
@@ -242,7 +269,11 @@ class FCApproachAnalyzer(FCBaseProcessor):
 
     @data_statistics_deco(ds_dict={"data_name": "YoungE"})
     def get_E(self):
-        E = self.fit_hertz_E(self.line_fitted_data[:, 1])
+        E = fit_hertz_E(
+            self.line_fitted_data[:, 1],
+            bead_radious=self.afm_param_dict["bead_radias"], #スペルミス
+            poission_ratio = self.afm_param_dict["poission_ratio"]
+        )
         return np.array(E)
 
     @data_statistics_deco(ds_dict={"data_name": "cross_topo_contact"})
@@ -284,14 +315,15 @@ class FCApproachAnalyzer(FCBaseProcessor):
         line_fitted_data:arr_like
             [コンタクトポイント, 傾き, 切片]
         """
-        cp_pre = self.get_cp_pre(force_app, )
-        self.i = 0
+        cp_pre = self.get_cp_pre(force_app, cp_kargs)
         self.tk = TimeKeeper(len(force_app))
         self.line_fitted_data = self.isfile_in_data_or_save("linfitdata.npy")
         self.cross_cp = self.isfile_in_data_or_save("cross_cp.npy")
         self.contact = self.isfile_in_data_or_save("contact.npy")
+
         if isinstance(self.line_fitted_data, bool) or isinstance(self.cross_cp, bool):
             self.contact_search(delta_app, force_app, cp_pre)
+
         self.E = self.get_E()
         self.contact = np.array(self.line_fitted_data[:, 0], dtype=np.int32)
         np.save(self.save_name2path("contact"), self.contact)
@@ -325,8 +357,5 @@ class FCApproachAnalyzer(FCBaseProcessor):
 
 
 
-if __name__ == "__main__":
-    force_app = np.load("contact/force_app.npy")
-    delta_app = np.load("contact/delta_app.npy")
 
-    # cp.get_cp(delta_app, force_app, plot=True)
+    

@@ -86,7 +86,6 @@ class FCApproachAnalyzer(FCBaseProcessor):
             logger=False):
         self.logger.debug("Started searching contact point")
         #TODO: ContactPoint分ける。GradientAdjasmentの分割
-        print()
         cp = ContactPoint(save_path=self.save_path, 
                           measurament_dict=self.measurament_dict,
                           data_path=self.data_path, 

@@ -62,10 +62,10 @@ def data_statistics_deco(ds_dict):
                         plt.close()
                         num_plot -= 1
 
-                        plt.imshow(d.reshape(self.measurament_dict["map_shape"]),vmin=vmin, vmax=vmax, cmap="seismic")
-                        plt.colorbar()
-                        plt.savefig(self.save_name2path(dn + "_colored"))
-                        plt.close()
+                        # plt.imshow(d.reshape(self.measurament_dict["map_shape"]),vmin=vmin, vmax=vmax, cmap="seismic")
+                        # plt.colorbar()
+                        # plt.savefig(self.save_name2path(dn + "_colored"))
+                        # plt.close()
                     fig, ax = plt.subplots(
                         1, num_plot, figsize=(8 * num_plot, 5))
                     i = 0
