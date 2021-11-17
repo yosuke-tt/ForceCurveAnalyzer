@@ -4,12 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def data_statistics_deco(ds_dict):
+def data_statistics_deco(ds_dict: dict):
     """データ保存のためのデコレータ
 
     Parameters
     ----------
-    ds_dict : [type]
+    ds_dict : dict
         データ保存のためのデコレータのdict
     """
     def ds_func(func):
