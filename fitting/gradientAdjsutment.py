@@ -30,6 +30,7 @@ class GradientAdjsutment:
                      habs,theta,cos_map,
                      xfit,yfit,zfit,
                      spline=True):
+        """結果の表示"""
         fig = plt.figure(figsize=(30,30))
         gs = gridspec.GridSpec(ncols=len(x)+10, nrows=len(y)+10)
         plt.subplot(gs[:z.shape[0], :z.shape[1]])
@@ -203,7 +204,8 @@ class GradientAdjsutment:
 
     def fit(self,
             topo:np.ndarray,
-            methods:str = "multi_8")->np.ndarray:
+            methods:str = "multi_8",
+            is_plot:bool =False)->np.ndarray:
         """トポグラフィー像から、勾配を求める関数。
 
         Parameters
@@ -263,12 +265,13 @@ class GradientAdjsutment:
         cos_map = np.cos(theta)
         
         #描画
-        cos_map = self.slice_3d_img(x,y,
-                                    topo,
-                                    gx_d,gy_d,
-                                    habs,theta,cos_map
-                                    ,x_fit,y_fit,z_fit,
-                                    spline=spline)
+        if is_plot:
+            self.slice_3d_img(x,y,
+                            topo,
+                            gx_d,gy_d,
+                            habs,theta,cos_map
+                            ,x_fit,y_fit,z_fit,
+                            spline=spline)
         return cos_map**(5/2) #=>returnどっちがいいかなあ
 
 
