@@ -5,6 +5,13 @@ import matplotlib.pyplot as plt
 
 
 def data_statistics_deco(ds_dict):
+    """データ保存のためのデコレータ
+
+    Parameters
+    ----------
+    ds_dict : [type]
+        データ保存のためのデコレータのdict
+    """
     def ds_func(func):
         try:
             data_name = ds_dict["data_name"]

@@ -56,7 +56,3 @@ def load_fc_dirs( fc_dir_path:pathLike,
 
     return fc_paths
 
-if __name__ == "__main__":
-    # lf = LoadFCdirs("../data_20210309_new/")
-    # print(lf.search_dirs())
-    pass

@@ -8,6 +8,7 @@ FIXME:
     BaseFCAnalyzerが重すぎヤバイ。
 
 TODO:
+        MeasuramentParamsとAFMparametersまとめる。サンプリング
     READMEで使用法を行う。
     StressRelaxationの無駄が多すぎるやばめ。
     dirloaderは、くらすにしなくてもいいんじゃん？

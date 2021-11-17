@@ -20,12 +20,7 @@ from ..utils import data_statistics_deco
 #!
 
 #//
-
-pathLike = Union[str, bytes, os.PathLike, None]
-
  
-
-    
 
 class FCBaseProcessor(metaclass=ABCMeta):
     def __init__(self,
