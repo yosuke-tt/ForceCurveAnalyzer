@@ -110,7 +110,19 @@ class GradientAdjsutment:
             print("Methods needs to be multi or spline")
             print(f"{methods}->multi_8")
             return ["multi",int(8)]
-    def edge_filter(self,img):
+    def edge_filter(self,
+                    img:np.ndarray
+                   ):
+        """端は、隣のデータを入力することで補完する。
+        Parameters
+        ----------
+        img: np.ndarray
+        
+        Returns
+        -------
+        img : np.ndarray
+            補正後のイメージ
+        """
         img[:,0] = img[:,1]
         img[:,-1] = img[:,-2]
 
