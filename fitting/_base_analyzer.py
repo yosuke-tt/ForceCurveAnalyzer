@@ -14,7 +14,7 @@ import logging.handlers
 from logging import getLogger, Formatter, FileHandler, DEBUG, INFO
 
 from ..utils import data_statistics_deco
-
+from ..utils.typing import *
 # config_dict = {'ystep': 20, 'xstep': 20, 'xlength': 3e-06, 'ylength': 3e-06, 'zig': False}
 #?
 #!
