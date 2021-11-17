@@ -194,26 +194,3 @@ class GradientAdjsutment:
 
 
 
-if __name__ == '__main__':
-    # img =  np.arange(0,100).reshape(10,10)
-    # print(img)
-    # ga = GradientAdjsutment().edge_filter(img)
-    # print(ga)
-    args=get_argparser()
-    abs_fcdirpath = os.path.abspath(args.fcdirpath)
-
-    print(abs_fcdirpath)
-    dirname = os.path.basename(abs_fcdirpath)
-    os.makedirs("20210629", exist_ok=True)
-    if not os.path.isfile(os.path.join(abs_fcdirpath,"forcecurve.npy")):
-        fc_dirs = common.search_dirs(abs_fcdirpath)
-        fc_paths = [os.path.split(d)[0] for d in fc_dirs]
-        np.save(os.path.join(abs_fcdirpath,"forcecurve.npy"), fc_paths)
-    else:
-        fc_paths = np.load(os.path.join(abs_fcdirpath,"forcecurve.npy"))
-
-    for i,fc_path in enumerate(fc_paths):
-        print(fc_path)
-        if os.path.isfile(os.path.join(fc_path,"topo_contact.npy")):
-            topo = np.load(os.path.join(fc_path,"topo_contact.npy"))
-            ga = GradientAdjsutment().gradient_topo(topo,methods="spline")
