@@ -12,13 +12,22 @@ from scipy import interpolate
 from ..utils import decorators 
 
 class GradientAdjsutment:
-    def __init__(self,xystep_length=(3e-6,3e-6), resolution = 10, map_shape=(20,20),save_path="./"):
+    def __init__(self,
+                 xystep_length=(3e-6,3e-6),
+                 resolution = 10,
+                 map_shape=(20,20),
+                 save_path="./"):
         self.xystep_length = xystep_length
-        self.resolution = 10
+        self.resolution = resolution
         self.save_path = save_path
         self.map_shape = map_shape
 
-    def slice_3d_img(self,x,y,z,gx,gy,habs,theta,cos_map,xfit,yfit,zfit,spline=True):
+    def slice_3d_img(self,
+                     x,y,z,
+                     gx,gy,
+                     habs,theta,cos_map,
+                     xfit,yfit,zfit,
+                     spline=True):
         fig = plt.figure(figsize=(30,30))
         gs = gridspec.GridSpec(ncols=len(x)+10, nrows=len(y)+10)
         plt.subplot(gs[:z.shape[0], :z.shape[1]])
@@ -106,7 +115,19 @@ class GradientAdjsutment:
             print("Methods needs to be multi or spline")
             print(f"{methods}->multi_8")
             return ["multi",int(8)]
-    def edge_filter(self,img):
+    def edge_filter(self,
+                    img:np.ndarray
+                   ):
+        """端は、隣のデータを入力することで補完する。
+        Parameters
+        ----------
+        img: np.ndarray
+        
+        Returns
+        -------
+        img : np.ndarray
+            補正後のイメージ
+        """
         img[:,0] = img[:,1]
         img[:,-1] = img[:,-2]
 
@@ -119,7 +140,23 @@ class GradientAdjsutment:
         img[-1,-1] = np.mean([img[-1,-2],img[-2,-1],img[-2,-2]])
         return img
 
-    def fit(self,topo, methods = "multi_8"):
+    def fit(self,
+            topo:np.ndarray,
+            methods:str = "multi_8")->np.ndarray:
+        """トポグラフィー像から、勾配を求める関数。
+
+        Parameters
+        ----------
+        topo : np.ndarray
+            トポグラフィー像
+        methods : str, optional
+            フィッティングの方法, by default "multi_8"
+        Returns
+        -------
+        cos_map**(5/2) :np.ndarray
+            コサインのマップ
+        """
+        
         topo=np.max(topo)-topo
 
         methods_r = self.isMutiorSpline(methods)
@@ -162,26 +199,3 @@ class GradientAdjsutment:
 
 
 
-if __name__ == '__main__':
-    # img =  np.arange(0,100).reshape(10,10)
-    # print(img)
-    # ga = GradientAdjsutment().edge_filter(img)
-    # print(ga)
-    args=get_argparser()
-    abs_fcdirpath = os.path.abspath(args.fcdirpath)
-
-    print(abs_fcdirpath)
-    dirname = os.path.basename(abs_fcdirpath)
-    os.makedirs("20210629", exist_ok=True)
-    if not os.path.isfile(os.path.join(abs_fcdirpath,"forcecurve.npy")):
-        fc_dirs = common.search_dirs(abs_fcdirpath)
-        fc_paths = [os.path.split(d)[0] for d in fc_dirs]
-        np.save(os.path.join(abs_fcdirpath,"forcecurve.npy"), fc_paths)
-    else:
-        fc_paths = np.load(os.path.join(abs_fcdirpath,"forcecurve.npy"))
-
-    for i,fc_path in enumerate(fc_paths):
-        print(fc_path)
-        if os.path.isfile(os.path.join(fc_path,"topo_contact.npy")):
-            topo = np.load(os.path.join(fc_path,"topo_contact.npy"))
-            ga = GradientAdjsutment().gradient_topo(topo,methods="spline")
