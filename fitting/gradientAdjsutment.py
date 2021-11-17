@@ -12,7 +12,11 @@ from scipy import interpolate
 from ..utils import decorators 
 
 class GradientAdjsutment:
-    def __init__(self,xystep_length=(3e-6,3e-6), resolution = 10, map_shape=(20,20),save_path="./"):
+    def __init__(self,
+                 xystep_length=(3e-6,3e-6),
+                 resolution = 10,
+                 map_shape=(20,20),
+                 save_path="./"):
         self.xystep_length = xystep_length
         self.resolution = 10
         self.save_path = save_path
@@ -119,7 +123,23 @@ class GradientAdjsutment:
         img[-1,-1] = np.mean([img[-1,-2],img[-2,-1],img[-2,-2]])
         return img
 
-    def fit(self,topo, methods = "multi_8"):
+    def fit(self,
+            topo:np.ndarray,
+            methods:str = "multi_8")->np.ndarray:
+        """トポグラフィー像から、勾配を求める関数。
+
+        Parameters
+        ----------
+        topo : np.ndarray
+            トポグラフィー像
+        methods : str, optional
+            フィッティングの方法, by default "multi_8"
+        Returns
+        -------
+        cos_map**(5/2) :np.ndarray
+            コサインマップ
+        """
+        
         topo=np.max(topo)-topo
 
         methods_r = self.isMutiorSpline(methods)
