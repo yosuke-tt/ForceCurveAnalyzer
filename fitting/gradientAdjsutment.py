@@ -83,8 +83,29 @@ class GradientAdjsutment:
         plt.close()
 
         return cos_map
+    @staticmethod
+    def fit_topo_multidimension(topo:np.ndarray,
+                                plots:np.ndarray,
+                                fit_plots:np.ndarray,
+                                dim:int=8)->tuple(np.ndarray,np.ndarray):
+        """8次元フィッティング(平面でなく、それぞれの方向で行う。)
 
-    def fit_topo_multidimension(self,topo, plots, fit_plots, dim=8):
+        Parameters
+        ----------
+        topo : np.ndarray
+            トポグラフィー像(z)
+        plots : np.ndarray
+            x, y
+        fit_plots : np.ndarray
+            フィッティングするx,y
+        dim : int, optional
+            フィッティングのディメンション, by default 8
+
+        Returns
+        -------
+        x_fit, y_fit:np.ndarray
+            フィッティングした後z xfit: x方向のfit,yfit: y方向のfit
+        """
         x_fit = np.zeros((len(plots[0]),len(fit_plots[1])))
         y_fit = np.zeros((len(fit_plots[0]),len(plots[1])))
         xx = np.vstack([ fit_plots[0]**i for i in range(dim+1) ][::-1])
@@ -93,7 +114,7 @@ class GradientAdjsutment:
         for i, t in enumerate(topo):
             x_fit[i] += np.dot(xx.T,np.polyfit(plots[0], t, dim))
         for i, t in enumerate(topo.T):
-            y_fit[:,i] += np.dot(xx.T,np.polyfit(plots[1], t, dim)).T
+            y_fit[:,i] += np.dot(yy.T,np.polyfit(plots[1], t, dim)).T
         return x_fit, y_fit
     
     @staticmethod
@@ -116,7 +137,7 @@ class GradientAdjsutment:
         Returns
         -------
         z_fit:np.ndarray
-            [description]
+            フィッティングした後のz
         """
         f = interpolate.interp2d(plots[0], plots[1], topo, kind="quintic")
         z_fit = f(fit_plots[0],fit_plots[1])
