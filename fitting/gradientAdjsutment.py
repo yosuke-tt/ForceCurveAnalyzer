@@ -95,16 +95,36 @@ class GradientAdjsutment:
         for i, t in enumerate(topo.T):
             y_fit[:,i] += np.dot(xx.T,np.polyfit(plots[1], t, dim)).T
         return x_fit, y_fit
+    
+    @staticmethod
+    def fit_topo_spline(
+                        topo:np.ndarray,
+                        plots:np.ndarray,
+                        fit_plots:np.ndarray
+                        )->np.ndarray:
+        """スプライン補完をする関数。
 
-    def fit_topo_spline(self,topo,plots, fit_plots):
+        Parameters
+        ----------
+        topo : np.ndarray
+            トポグラフィー像(z)
+        plots : np.ndarray
+            x,y
+        fit_plots : np.ndarray
+            フィッティング対称のx,y
 
+        Returns
+        -------
+        z_fit:np.ndarray
+            [description]
+        """
         f = interpolate.interp2d(plots[0], plots[1], topo, kind="quintic")
         z_fit = f(fit_plots[0],fit_plots[1])
 
         return z_fit
 
     @staticmethod
-    def isMutiorSpline(methods:str):
+    def isMultiorSpline(methods:str):
         """スプライン補完と多次元フィッティングの識別を行うための関数。
 
         Parameters
