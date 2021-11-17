@@ -1,16 +1,12 @@
 from __future__ import annotations
-import os
-import sys
 
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-import japanize_matplotlib
 
 from ._base_analyzer import FCBaseProcessor, pathLike
 from .gradientAdjsutment import GradientAdjsutment
-from .cp import ContactPoint
 
 from ..utils import data_statistics_deco
 from ..parameters import *

@@ -37,7 +37,7 @@ class FitFC2Ting(FCBaseProcessor):
         self.norm = norm
         self.Hertz = True
 
-        self.model_param = self.elastic_modelconstant()
+        self.model_param = self.elastic_modelconstant()#まとめたい
         self.err = []
 
         self.change_x_data, self.change_y_data = [], []
@@ -72,45 +72,78 @@ class FitFC2Ting(FCBaseProcessor):
                             / (np.pi * (1 - self.afm_param_dict["poission_ratio"]**2))
         return model_param
 
-    def base2zero(self, delta_app, delta_ret, force_app, force_ret, contact, dim=1, ret_baseline="app", is_plot=True):
-        app_base_coeffs = [self.linefit(d[:c], f[:c], cp=0, d=dim)[1]
-                           if c > 3 else [0, 0, 0] for d, f, c in zip(delta_app, force_app, contact)]
+    def base2zero(self, 
+                  delta_app : list,
+                  delta_ret : list,
+                  force_app:list,
+                  force_ret:list,
+                  contact:list,
+                  ret_contact:list,
+                  ret_baseline:str="app",
+                  is_plot:bool=True) -> tuple(np.ndarray, np.ndarray):
+        """ベースラインをゼロに合わせるプログラム
+        
+        Parameters
+        ----------
+        delta_app, delta_ret, force_app, force_ret, contact : list
+            contactは、アプローチのもの。
+        ret_contact : list
+            リトラクションでのアプローチのコンタクトポイントの位置。
+        ret_baseline: list
+            リトラクションのベースライン補正の方法。
+            "contact"　: アプローチのコンタクトポイントを全体から引く。
+            "app"　　　: アプローチのベースラインを全体から引く。
+            "ret"(非推奨): アプローチのベースラインをアプローチ、リトラクションのベースラインからリトラクションを引く。
+        is_plot:bool, optional
+            結果を画像表示する。,default False
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
+        #baseline何回も求めてるのカラムだな気もする。
+        app_base_coeffs = [
+                            self.linefit(d[:c], f[:c], cp=0)
+                           if c > 3 
+                           else [0, 0, 0] 
+                           for d, f, c in zip(delta_app, force_app, contact)]
+        
         if ret_baseline == "contact":
+            #アプローチのcontactポイントをゼロとする。
             force_app_base = np.array([fca - fca[int(c)]
                                       for fca, c in zip(force_app, contact)], dtype=object)
-            force_ret_base = np.array([fcr - fca[int(c)] for fca, fcr,
-                                      c in zip(force_app, force_ret, contact)], dtype=object)
-            return force_app_base, force_ret_base
-        if ret_baseline == "ret":
-            ret_base_coeffs = np.array([self.linefit(d[rc:][::-1], f[rc:][::-1], cp=0, d=dim)[1]
-                                        if rc < 19996 else [0, 0, 0] for d, f, rc in zip(delta_ret, force_ret, ret_contact)])
+            force_ret_base = np.array([fcr - fca[int(c)] 
+                                       for fca, fcr, c in zip(force_app, force_ret, contact)], dtype=object)
         else:
-            ret_base_coeffs = app_base_coeffs
-
-        if dim == 1:
+            if ret_baseline == "ret":
+                ret_base_coeffs = np.array([self.linefit(d[rc:][::-1], f[rc:][::-1], cp=0, d=1)
+                                            if rc < 19996 else [0, 0] 
+                                            for d, f, rc in zip(delta_ret, force_ret, ret_contact)])
+            elif ret_baseline == "app":
+                ret_base_coeffs = app_base_coeffs
             force_app_base = np.array([fca - (apc[0] * da + apc[1]) for fca, apc,
-                                      da in zip(force_app, app_base_coeffs, delta_app)], dtype=object)
+                                    da in zip(force_app, app_base_coeffs, delta_app)], dtype=object)
             force_ret_base = np.array([fcr - (rc[0] * dr + rc[1]) for fcr, rc,
-                                      dr in zip(force_ret, ret_base_coeffs, delta_ret)], dtype=object)
-        else:
-            force_app_base = np.array([fca - (apc[0] * da**2 + apc[1] * da + apc[2])
-                                      for fca, apc, da in zip(force_app, app_base_coeffs, delta_app)], dtype=object)
-            force_ret_base = np.array([fcr - (rc[0] * dr**2 + rc[1] * dr + rc[2])
-                                      for fcr, rc, dr in zip(force_ret, ret_base_coeffs, delta_ret)], dtype=object)
+                                    dr in zip(force_ret, ret_base_coeffs, delta_ret)], dtype=object)
 
         if is_plot:
-            self.plot_set_base(self.save_path,
-                               self.delta_app,
-                                self.delta_ret,
-                                self.force_app,
-                                self.force_ret,
-                                self.contact,
-                                self.ret_contact,
-                                force_app_base,
-                                force_ret_base)
+            plot_set_base(self.save_path,self.delta_app,self.delta_ret,self.force_app,self.force_ret,self.contact,self.ret_contact,force_app_base,force_ret_base)
         return force_app_base, force_ret_base
-
-    def determine_data_range(
+    
+    def get_ret_contact(self,
+                        delta_app,
+                        delta_ret,
+                        app_contact,
+                        is_ret_contact_img=False
+                        ):
+        ret_contact = [ np.where(dr <= da[c])[0][0] if da[c] > np.min(dr) else len(dr) - 1
+                for dr, da, c in zip(delta_ret, delta_app, app_contact)]
+        if is_ret_contact_img:
+            ret_contact_img(self.save_path,self.delta_ret,self.delta_app,self.force_app,self.force_ret,self.contact,self.ret_contact)
+        return ret_contact
+    
+    def preprocessing(
             self,
             delta_app,
             delta_ret,
@@ -118,31 +151,47 @@ class FitFC2Ting(FCBaseProcessor):
             force_ret,
             contact,
             is_processed_img=True,
-            is_ret_contact_img=False):
-        contact = contact.astype(int)
-        ret_contact = [np.where(dr <= da[c])[0][0] if da[c] > np.min(dr) else len(dr) - 1
-                       for dr, da, c in zip(delta_ret, delta_app, contact)]
-        if is_ret_contact_img:
-            ret_contact_img(self.save_path,self.delta_ret,self.delta_app,self.force_app,self.force_ret,self.contact,self.ret_contact)
+            ret_baseline="contact",
+            kargs_ret_contact={},
+            kargs_base_fit={}):
+        """delta, forceのベースライン補正により前処理。
 
-        force_app_base, force_ret_base = self.base2zero(
-            delta_app, delta_ret, force_app, force_ret, contact, dim=1, is_plot=True, ret_baseline="contact")
+        Parameters
+        ----------
+        delta_app, delta_ret, force_app, force_ret, contact : list
+            フォースカーブ
+        is_processed_img : bool, optional
+            処理結果の画像, by default True
+        ret_baseline : str, optional
+            retの補正方法の種類, by default "contact"
+        kargs_ret_contact : dict, optional
+            [description], by default {}
+        kargs_base_fit : dict, optional
+            [description], by default {}
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
+        ret_contact = self.get_ret_contact(delta_app,delta_ret,contact, **kargs_ret_contact)
+        
+        force_app_base, force_ret_base = self.base2zero(delta_app,delta_ret,force_app,force_ret, contact,ret_baseline,ret_baseline,**kargs_base_fit)
+        # "ret"以外いらないかも
         force_app_max = [np.max(fab) for fab in force_app_base]
         force_ret_corrected = np.array(
             [np.fmin(fam, frb) for fam, frb in zip(force_app_max, force_ret_base)], dtype=object)
-
+        
+        #da[0]はda[c]な気がするー
         delta_data = np.array([np.concatenate([da[c:], dr[:rc + 1]]) - da[0]
                               for da, dr, c, rc in zip(delta_app, delta_ret, contact, ret_contact)], dtype=object)
         force_data = np.array([np.concatenate([fa[c:], fr[:rc + 1]]) for fa, fr, c,
                               rc in zip(force_app_base, force_ret_corrected, contact, ret_contact)], dtype=object)
 
-        delta_data = [self.normalize(d, norm_length=self.norm)
-                      for d in delta_data]
-        force_data = [self.normalize(f, norm_length=self.norm)
-                      for f in force_data]
-
-        # if is_processed_img:
-        #     plot_preprocessed_img(self.save_path,delta_data,force_data,self.delta, self.force)
+        delta_data = np.array([self.normalize(d, norm_length=self.norm) for d in delta_data])
+        force_data = np.array([self.normalize(f, norm_length=self.norm) for f in force_data])
+        if is_processed_img:
+            plot_preprocessed_img(self.save_path,delta_data,force_data,self.delta, self.force)
 
         np.save(self.save_name2path("delta_preprocessed"), delta_data)
         np.save(self.save_name2path("force_preprocessed"), force_data)
@@ -185,6 +234,7 @@ class FitFC2Ting(FCBaseProcessor):
         np.concatenate([force_app_fitted, force_ret_fitted])[:int(len(d_app)+len(d_ret))] : np.ndarray
             ting modelの結果
         """
+        raise ValueError("現在使えても使うのだめ。")
         # ind_index = self.contact_point[self.index]
         # d_app = self.delta_app[self.index][ind_index:]
         # d_ret = self.delta_ret[self.index][ind_index:]
@@ -202,8 +252,7 @@ class FitFC2Ting(FCBaseProcessor):
 
         force_app_fitted = [integrate.quad(lambda xi: self.eq_PLR_integrand(
             xi, t=t, e0=e0, alpha=alpha, dstep=app_dstep), 0, t)[0] for t in t_app]
-        t_ret = np.arange(tm, (len(d_app) + len(d_ret) - 1)
-                          * self.tstep, self.tstep)
+        t_ret = np.arange(tm, (len(d_app) + len(d_ret) - 1)* self.tstep, self.tstep)
 
         ret_dstep = (d_ret[-1] - d_ret[0]) / (t_ret[-1] - t_ret[0])
 
@@ -261,61 +310,73 @@ class FitFC2Ting(FCBaseProcessor):
         np.concatenate([force_app_fitted, force_ret_fitted])[:int(len(d_app)+len(d_ret))] : np.ndarray
             ting modelの結果
         """
+        #!! curvefitでboundsが上手くきかないので強引にここで。
         e0 = np.max([0, e0])
         alpha = np.min([self.alpha_upper, np.max([0, alpha])])
         einf = np.max([0, einf])
-        # print(e0, alpha, einf)
-
+        
         tm = x[0] * self.tstep
+        
         t_app = np.arange(0, tm, self.tstep)
+        #FIXME:x[0]は強引にapprochの長さを入れるために入れてる。
+        #変数の入れ方としてd = (dapp, dret)
+        
         d_app = x[1:][:int(x[0])]
         d_ret = x[1:][int(x[0]):]
+        
+        #微分計算
+        app_dstep = (d_app[-1] - d_app[0]) / (t_app[-1] - t_app[0])
+        
+        #labmda式じゃなくていいかも
+        force_app_fitted = [
+                                integrate.quad(
+                                        lambda xi: self.eq_PLR_integrand(xi, t=t, param=[e0, alpha, einf], dstep=app_dstep), 
+                                        0, 
+                                        t
+                                    )[0] 
+                                for t in t_app
+                            ]
 
-        if len(t_app) < 2:
-            return [0]
-        else:
-            app_dstep = (d_app[-1] - d_app[0]) / (t_app[-1] - t_app[0])
-
-        force_app_fitted = [integrate.quad(lambda xi: self.eq_PLR_integrand(
-            xi, t=t, param=[e0, alpha, einf], dstep=app_dstep), 0, t)[0] for t in t_app]
-
-        t_ret = np.arange(tm, (len(d_app) + len(d_ret))
-                          * self.tstep, self.tstep)
+        t_ret = np.arange(tm, (len(d_app) + len(d_ret))* self.tstep, self.tstep)
+        
         ret_dstep = (d_ret[-1] - d_ret[0]) / (t_ret[-1] - t_ret[0])
         t1 = np.zeros(len(t_ret))
-        t1s_pro = np.arange(0, tm, 0.00001)
-
+        
+        #FIXME:ここの最適化計算は、ちゃんとなおす。最も時間のボトルネック。
+        # t1s_pro = np.arange(0, tm, 0.00001)
+        
         for i_t1, tr in enumerate(t_ret):
-            int_pro = np.zeros(len(t1s_pro))
+            # int_pro = np.zeros(len(t1s_pro))
             ret_integral = integrate.quad(lambda xi: self.eq_PLR_integrand_for_t1(
                 xi, t=tr, param=[e0, alpha, einf], dstep=ret_dstep), tm, tr)[0]
-
-            for i, t1p in enumerate(t1s_pro):
-                int_pro[i] += np.abs(integrate.quad(lambda xi: self.eq_PLR_integrand_for_t1(xi, t=tr,
-                                     param=[e0, alpha, einf], dstep=app_dstep), t1p, tm)[0] + ret_integral)
-            # t1_searched = optimize.least_squares(lambda t1 : np.abs(integrate.quad(lambda xi : self.eq_PLR_integrand_for_t1(xi, e0=e0, t=tr, alpha = alpha, dstep= app_dstep),t1p, tm)[0]
-            #                                                         +ret_integral)
-            #                                     parameter0=[tm]
+            # for i, t1p in enumerate(t1s_pro):
+            #     int_pro[i] += np.abs(integrate.quad(lambda xi: self.eq_PLR_integrand_for_t1(xi, t=tr,
+            #                          param=[e0, alpha, einf], dstep=app_dstep), t1p, tm)[0] + ret_integral)
             #                                 )
-            t1[i_t1] += t1s_pro[np.argmin(int_pro)]
-            t1s_pro = t1s_pro[:np.argmin(int_pro) + 1]
+            # t1[i_t1] += t1s_pro[np.argmin(int_pro)]
+            #いいのをつかお
+            t1_searched = optimize.fmin_ncg(lambda t1 : np.abs(integrate.quad(
+                                                                lambda xi : self.eq_PLR_integrand_for_t1(xi, e0=e0, t=tr, alpha = alpha, dstep= app_dstep),
+                                                                t1, 
+                                                                tm)[0]
+                                                                +ret_integral
+                                                            ),
+                                            x0=(t1_searched),
+                                            bounds=(0,t1_searched)
+                                            )
+            t1[i_t1] += t1_searched 
+        
         force_ret_fitted = [
             integrate.quad(
-                lambda xi: self.eq_PLR_integrand(
-                    xi,
-                    t=t_ret[i],
-                    param=[
-                        e0,
-                        alpha,
-                        einf],
-                    dstep=app_dstep),
+                lambda xi: self.eq_PLR_integrand(xi,
+                                                t=t_ret[i],
+                                                param=[e0,alpha,einf],
+                                                dstep=app_dstep),
                 0,
                 t)[0] if t != 0 else 0 for i,
             t in enumerate(t1)]
 
-        fit_data = np.concatenate([force_app_fitted, force_ret_fitted])
-        f_fit = np.concatenate([force_app_fitted, force_ret_fitted])[
-            :len(x[1:])]
+        f_fit = np.concatenate([force_app_fitted, force_ret_fitted])[:len(x[1:])]
         try:
             if np.mean(np.abs(f_fit - self.y_tmp)) < self.res_tmp:
                 self.popt_tmp = [e0, alpha, einf]
@@ -324,45 +385,66 @@ class FitFC2Ting(FCBaseProcessor):
             pass
         return f_fit
 
-    def change_fit_range(self, x, y, idx, start_fit=20, end_fit=40):
-        y_app = y[:np.argmax(y)]
-        x_app = x[:np.argmax(y)]
+    def change_fit_range(self, delta, force, idx, start_fit=20, end_fit=40):
+        """forceCurveの立ち上がり下りの部分のデータのforce方向を補正する。
 
-        lfit = np.vstack([self.linefit(x_app, y_app, cp=i, d="easy_fit")
-                         for i in range(len(y_app) - end_fit, len(y_app) - start_fit)])
-        coeffs = lfit[:, 1:]
+        Parameters
+        ----------
+        delta : [type]
+            [description]
+        force : [type]
+            [description]
+        idx : [type]
+            [description]
+        start_fit : int, optional
+            [description], by default 20
+        end_fit : int, optional
+            [description], by default 40
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
+        force_app = force[:np.argmax(force)]
+        delta_app = delta[:np.argmax(force)]
+
+        coeffs = np.vstack([self.linefit(delta_app, force_app, cp=i, d="easy_fit")
+                         for i in range(
+                                    len(force_app) - end_fit,
+                                    len(force_app) - start_fit
+                                )])
+        
         coeffs_m = np.median(coeffs, axis=0)
-
-        base_mid = (y[-1]-y[0]) / 2
-        x_new_start = (base_mid - coeffs_m[1]) / coeffs_m[0]
-        x_new = x[x > x_new_start]
-        y_new_ = y[x > x_new_start]
-        # TODO: 個々の値を更新するたびに、appに近くする。もしくは、はじめに、appと0(baseline)との近さによって、変化させる。
-        base_mid_new = (y_new_[0]-y_new_[-1]) / 2
-        y_new = y_new_-y_new_[0] + np.abs(base_mid_new)
+        base_mid = (force[-1]+force[0]) / 2
+        delta_new_start = (base_mid - coeffs_m[1]) / coeffs_m[0]
+        delta_new = delta[delta > delta_new_start]
+        
+        force_new = force[delta > delta_new_start]
+        
+        
         os.makedirs(self.save_name2path("processed_img_for_ting"), exist_ok=True)
-        plt.plot(x, y, label="original")
-        plt.plot(x,coeffs_m[0]*x+coeffs_m[1],label="lines")
-        plt.plot(x_new, y_new, label="new")
-        plt.vlines([x_new_start], 
-                   ymin=np.min(y), 
-                   ymax=np.max(y), 
+        plt.plot(delta, force, label="original")
+        plt.plot(delta, coeffs_m[0]*x+coeffs_m[1],label="lines")
+        plt.plot(delta_new, force_new, label="new")
+        plt.vlines([delta_new], 
+                   ymin=np.min(force), 
+                   ymax=np.max(force), 
                    label="x_new_start",
                    color="red")
-
-        plt.hlines([base_mid,base_mid_new], 
-                   xmin=np.min(x), 
-                   xmax=np.max(x), 
+        plt.hlines([base_mid,base_mid], 
+                   xmin=np.min(delta), 
+                   xmax=np.max(delta), 
                    label="base_mid",
                    color="red")
         plt.hlines([0], 
-                   xmin=np.min(x), 
-                   xmax=np.max(x),
+                   xmin=np.min(delta), 
+                   xmax=np.max(delta),
                    label="0")
         plt.legend()
         plt.savefig(self.save_name2path("processed_img_for_ting/{:>03}".format(idx)))
         plt.close()
-        return x_new, y_new
+        return delta_new, force_new
 
     def change_data(self, file_path, all_data, change_data, idx, info):
 
@@ -386,8 +468,8 @@ class FitFC2Ting(FCBaseProcessor):
 
     def objective_ting(
             self,
-            x,
-            y,
+            delta,
+            force,
             idx=0,
             offset=False,
             data_ratio=[0, 0.6],
@@ -401,9 +483,9 @@ class FitFC2Ting(FCBaseProcessor):
         ----------
         iv : array_like
             初期値
-        x : np.ndarray
+        delta : np.ndarray
             押し込み量
-        y : np.ndarray
+        force : np.ndarray
             力
         offset : bool, optional
             offsetを使用するかどうか, by default False
@@ -413,59 +495,71 @@ class FitFC2Ting(FCBaseProcessor):
         popt
             最適解[e0, alpha, e1,]
         """
-        self.y_tmp_row = y
+        self.y_tmp_row = force
         self.res_tmp = np.inf
         self.index = idx
-        start_fit = time.time()
-        data_range = len(y) * np.array(data_ratio)
+        
+        data_range = len(force) * np.array(data_ratio)
         data_start, data_end = int(data_range[0]), int(data_range[1])
 
-        y_ = y[data_start:data_end]
-        x_data = x[data_start:data_end]
-        x_ = np.append(np.argmax(y), x_data)
+        force_fit = force[data_start:data_end]
+        delta_fit = delta[data_start:data_end]
+        #trigerから求めた方がいい。
+        #FIXME: approachの長さを渡すため。
+        #ただ、x,yでtupleで渡す方がいい。
+        #tingmodel内で分割はよくない
+        delta_fit = np.append(np.argmax(force), delta_fit)
+
+        #FIXME: 現在適当。アプローチの結果から求めた方がいい。
         iv = [600, 0.3, 10] if offset else [400, 0.3]
+
         fit_model = self.tingmodel_offset if offset else self.tingmodel
+
         self.popt_tmp = iv
-        self.y_tmp = y_
+        self.y_tmp = force_fit
+
         try:
+            #FIXME: ここ全体を初期値での最適化にした方がいい。下のelse都かだめだなー
             for i in range(optimize_times):  # あんまりよくないfor
                 # TODO: base_lineを変更するようにして、
                 # アプローチを急激に高くしないようにする。
-
-                popt, pcov = optimize.curve_fit(fit_model, xdata=x_, ydata=y_, p0=iv)
-                e0 = np.max([0, popt[0]])
+                popt, _ = optimize.curve_fit(fit_model, xdata=delta_fit, ydata=force_fit, p0=iv)
+                #! ここは、最適か計算の中（tingmodel_offset）ではじめに変更しているので、計算上
+                #!　同様の計算をしているのでこの変換がいる。
+                e0 = np.abs([0, popt[0]])
                 alpha = np.min([self.alpha_upper, np.max([0, popt[1]])])
-
                 if offset:
                     einf = np.max([0, popt[2]])
                     popt = [e0, alpha, einf]
                 else:
                     popt = [e0, alpha]
 
-                f_fit = fit_model(np.append(np.argmax(y), x), *popt)
-
-                if np.mean((f_fit - y)**2) < res_th_upper and popt[0] > e1_th_lawer:
+                f_fit = fit_model(np.append(np.argmax(force), delta), *popt)
+                #誤差が大きい場合と、二個目の条件の理由忘れた。
+                if np.mean((f_fit - force)**2) < res_th_upper and popt[0] > e1_th_lawer:
                     break
                 elif i == 0:
-                    x, y = self.change_fit_range(x, y, idx)
-                    data_range = len(y) * np.array(data_ratio)
+                    delta_, force_ = self.change_fit_range(delta, force, idx)
+                    data_range = len(force) * np.array(data_ratio)
                     data_start, data_end = int(data_range[0]), int(data_range[1])
-                    y_ = y[data_start:data_end]
-                    x_data = x[data_start:data_end]
-                    x_ = np.append(np.argmax(y), x_data)
-                    self.change_x_data = np.append(self.change_x_data, x)
-                    self.change_y_data = np.append(self.change_y_data, y)
+                    force_fit = force_[data_start:data_end]
+                    delta_fit = delta_[data_start:data_end]
+                    delta_fit = np.append(np.argmax(force_fit), delta_fit)
+                    #怪しい。
+                    self.change_x_data = np.append(self.change_x_data, delta_fit)
+                    self.change_y_data = np.append(self.change_y_data, force_fit)
                     self.change_idx = np.append(self.change_idx, self.index)
                 else:
                     iv = np.abs(np.random.randn(3)) * np.array(iv)
                     if popt[0] < 10:
                         popt = self.popt_tmp
 
-            f_fit = fit_model(np.append(np.argmax(y), x), *popt)
-            self.residuals.append(np.abs(f_fit - y))
+            f_fit = fit_model(np.append(np.argmax(force), delta), *popt)
+            self.residuals.append(np.abs(f_fit - force))
             
-            fitting_ting(self.save_path,x, y, x_[1:], y_, f_fit,
-                            popt, np.mean((f_fit - y)**2), self.index)
+            fitting_ting(self.save_path, 
+                         delta, force, delta_fit[1:], force_fit, f_fit,
+                            popt, np.mean((f_fit - force)**2), self.index)
             if popt[0]>1000:
                 self.larger_idx.append(idx)
             self.larger_idx
@@ -498,6 +592,7 @@ class FitFC2Ting(FCBaseProcessor):
         coefs : np.ndarray
             結果
         """
+    
         if fit_index == "all":
             self.index = 0
             self.num_of_data = len(delta)
@@ -516,8 +611,18 @@ class FitFC2Ting(FCBaseProcessor):
         self.logger.debug("Finished fitting")
         return result
 
-    def fit(self, delta_app, delta_ret, force_app, force_ret, contact,E,
-            fit_index="all", offset=True, ret_ratio=0.3, is_ret_contact_img=False):
+    def fit(self, 
+            delta_app, 
+            delta_ret, 
+            force_app, 
+            force_ret, 
+            contact,
+            E,
+            fit_index="all",
+            offset=True,
+            ret_ratio=0.3,
+            is_ret_contact_img=False,
+            force_fitting=False):
         """
 
         Parameters
@@ -535,14 +640,12 @@ class FitFC2Ting(FCBaseProcessor):
         is_ret_contact_img : bool, optional
             いらない気がする。, by default False
         """
-        start = time.time()
-
+        start=time.time()
         delta_data = self.isfile_in_data_or_save("delta_preprocessed.npy")
         force_data = self.isfile_in_data_or_save("force_preprocessed.npy")
 
-        if True or (not isinstance(delta_data, np.ndarray) or not isinstance(force_data, np.ndarray)):
-            delta_data, force_data = self.determine_data_range(
-                delta_app, delta_ret, force_app, force_ret, contact,)
+        if force_fitting or isinstance(delta_data, bool) or isinstance(force_data, bool):
+            delta_data, force_data = self.preprocessing(delta_app,delta_ret,force_app,force_ret,contact)
 
         if isinstance(self.isfile_in_data_or_save("fit_result.npy"), bool) :
             self.logger.debug(f"Start fitting")

@@ -19,8 +19,7 @@ from ._base_analyzer import FCBaseProcessor, pathLike
 from ..utils.fc_helper import *
 from ..utils.decorators import data_statistics_deco
 from ..utils import TimeKeeper
-
-from ..parameters import IOFilePathes, AFMParameters
+from ..fitting.hertz_contact_model import *
 
 import japanize_matplotlib
 
@@ -40,21 +39,6 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         warnings.simplefilter('ignore')
         self.invols = invols
         self.sr_length = sr_length
-
-    def set_cp(self, data, cp):
-        """
-        コンタクトポイントからのデータに0殻設定したもの
-
-        Parameters
-        ----------
-        cp :
-            コンタクトポイント
-        Note
-        self.delta~に全部設定される。
-        """
-        data_cp = np.array([d[cp] for d, cp in zip(data, cp)]).reshape(-1, 1)
-        data -= data_cp
-        return data
 
     def hertz_Et(self,delta_sr,force_sr):
         """
@@ -264,10 +248,8 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
         np.save(self.save_name2path("delta_sr"), self.delta_sr)
 
         self.Et = self.isfile_in_data_or_save("et.npy")
-        # self.hertz_Et()
-        # np.save(os.path.join(self.save_path,"et"),self.Et)
         if not self.Et:
-            self.Et = self.hertz_Et(delta_sr,force_sr)
+            self.Et = hertz_Et(delta_sr,force_sr)
             np.save(self.save_name2path("et"), self.Et)
         self.logger.info("start fitting")
 
@@ -293,7 +275,7 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
             self.logger.info("{:>3}h {:>3}m {:>3}s".format(hour, minute, second))
         return end / len(e0_res_grad)
 
-    def load_data(self, fc_path, fc_type="fc", load_row_fc_kargs={}):
+    def load_data(self, fc_path, fc_type="fc", map_shape_square_strict=True,load_row_fc_kargs={}):
         
         fc_row_data = self.load_row_fc(fc_path=fc_path, 
                                        map_shape_square_strict=map_shape_square_strict,
