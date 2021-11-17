@@ -70,7 +70,6 @@ def data_statistics_deco(ds_dict: dict):
 
                     data_std = np.std(d[d > 0])
                     vmin = np.nanmax([0, np.nanmean(d[d > 0]) - 2 * data_std])
-
                     vmax = np.nanmean(d) + 2 * data_std
                     d = np.nan_to_num(d, nan=vmin)
                     if "map_only" in stat_type:
