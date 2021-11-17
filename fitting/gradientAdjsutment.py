@@ -18,7 +18,7 @@ class GradientAdjsutment:
                  map_shape=(20,20),
                  save_path="./"):
         self.xystep_length = xystep_length
-        self.resolution = 10
+        self.resolution = resolution
         self.save_path = save_path
         self.map_shape = map_shape
 
