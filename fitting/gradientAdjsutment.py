@@ -22,7 +22,12 @@ class GradientAdjsutment:
         self.save_path = save_path
         self.map_shape = map_shape
 
-    def slice_3d_img(self,x,y,z,gx,gy,habs,theta,cos_map,xfit,yfit,zfit,spline=True):
+    def slice_3d_img(self,
+                     x,y,z,
+                     gx,gy,
+                     habs,theta,cos_map,
+                     xfit,yfit,zfit,
+                     spline=True):
         fig = plt.figure(figsize=(30,30))
         gs = gridspec.GridSpec(ncols=len(x)+10, nrows=len(y)+10)
         plt.subplot(gs[:z.shape[0], :z.shape[1]])
@@ -150,7 +155,6 @@ class GradientAdjsutment:
         -------
         cos_map**(5/2) :np.ndarray
             コサインのマップ
-        
         """
         
         topo=np.max(topo)-topo
