@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import os
 import logging 
@@ -102,6 +104,7 @@ class GradientAdjsutment:
         return z_fit
 
     def isMutiorSpline(self, methods):
+        
         if  "multi" in methods:
             dim = methods.split("_")[1]
             if len(dim)==0:
@@ -156,28 +159,41 @@ class GradientAdjsutment:
         cos_map**(5/2) :np.ndarray
             コサインのマップ
         """
+        # zsensorから高さに合わせるために逆にする。
+        topo : np.ndarray=np.max(topo)-topo
         
-        topo=np.max(topo)-topo
-
-        methods_r = self.isMutiorSpline(methods)
+        
+        methods_r :list[str,int | None]= self.isMutiorSpline(methods)
+        
+        #x,yの真の点(z)をその値の中心から始まるようにする。
         x = np.arange(self.xystep_length[0]/2,self.xystep_length[0]*self.map_shape[0]+self.xystep_length[0]/2,self.xystep_length[0])
         y = np.arange(self.xystep_length[1]/2,self.xystep_length[1]*self.map_shape[1]+self.xystep_length[1]/2,self.xystep_length[1])
 
+        #fittingしたときに補完するためのステップ幅。
         xystep_length_fit = (self.xystep_length[0]/self.resolution,self.xystep_length[1]/self.resolution)
+
+        #fittingしたときに補完するためのステップ幅。
         x_fit = np.arange(0,(xystep_length_fit[0])*self.map_shape[0]*self.resolution+xystep_length_fit[0]/2,xystep_length_fit[0])
         y_fit = np.arange(0,(xystep_length_fit[1])*self.map_shape[1]*self.resolution+xystep_length_fit[1]/2,xystep_length_fit[1])
-
+        
+        #シンプルなフィッティング
         if methods_r[0]=="multi":
+            #フィッティング
             x_fit_mul, y_fit_mul = self.fit_topo_multidimension(topo, plots=(x,x), 
-                                                                fit_plots=(x_fit,y_fit)
-                                                                ,dim=methods_r[1])
+                                                                fit_plots=(x_fit,y_fit),
+                                                                dim=methods_r[1]
+                                                                )
+            #微分
             x_fit_mul_grad = np.gradient(x_fit_mul,xystep_length_fit[0],axis=1)
             y_fit_mul_grad = np.gradient(y_fit_mul,xystep_length_fit[1],axis=0)
-            gx_d = x_fit_mul_grad[:,int(self.resolution/2):-int(self.resolution/2):self.resolution]
-            gy_d = y_fit_mul_grad[int(self.resolution/2):-int(self.resolution/2):self.resolution,:]
+            
+            gx_d = x_fit_mul_grad[:, int(self.resolution/2):-int(self.resolution/2):self.resolution]
+            gy_d = y_fit_mul_grad[int(self.resolution/2):-int(self.resolution/2):self.resolution, :]
             spline = False
             z_fit=(x_fit_mul, y_fit_mul)
+
         if methods_r[0]=="spline":
+            # フィッティング
             z_fit = self.fit_topo_spline(topo, plots=(x,y), fit_plots=(x_fit,y_fit))
             gy, gx = np.gradient(z_fit,*xystep_length_fit)
             spline = True
@@ -187,15 +203,15 @@ class GradientAdjsutment:
         habs    = np.sqrt(gx_d**2+gy_d**2)
         theta   = np.arctan(habs)
         cos_map = np.cos(theta)
-
-
+        
+        #描画
         cos_map = self.slice_3d_img(x,y,
                                     topo,
                                     gx_d,gy_d,
                                     habs,theta,cos_map
                                     ,x_fit,y_fit,z_fit,
                                     spline=spline)
-        return cos_map**(5/2)
+        return cos_map**(5/2) #=>returnどっちがいいかなあ
 
 
 
