@@ -103,8 +103,24 @@ class GradientAdjsutment:
 
         return z_fit
 
-    def isMutiorSpline(self, methods):
+    @staticmethod
+    def isMutiorSpline(methods:str):
+        """スプライン補完と多次元フィッティングの識別を行うための関数。
+
+        Parameters
+        ----------
+        methods : str
+            multiとspline **Noteに注意書き。
+
+        Returns
+        -------
+            methods :multi =>["multi",int(dim)]
+            methods :spline =>["spline"]
         
+        Note
+        ----
+        multiとsplineがmethodsに入っていなければ、methods_8と同じになる。
+        """
         if  "multi" in methods:
             dim = methods.split("_")[1]
             if len(dim)==0:
@@ -118,6 +134,7 @@ class GradientAdjsutment:
             print("Methods needs to be multi or spline")
             print(f"{methods}->multi_8")
             return ["multi",int(8)]
+        
     def edge_filter(self,
                     img:np.ndarray
                    ):
