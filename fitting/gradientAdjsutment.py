@@ -150,6 +150,7 @@ class GradientAdjsutment:
         -------
         cos_map**(5/2) :np.ndarray
             コサインのマップ
+        
         """
         
         topo=np.max(topo)-topo
