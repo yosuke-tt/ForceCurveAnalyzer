@@ -12,7 +12,19 @@ def data_statistics_deco(ds_dict: dict):
     ds_dict : dict
         データ保存のためのデコレータのdict
     """
-    def ds_func(func):
+    def ds_func(func:callable):
+        """デコレータ
+
+        Parameters
+        ----------
+        func : callable
+            リターンを保存する関数。
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
         try:
             data_name = ds_dict["data_name"]
         except KeyError:
