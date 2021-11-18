@@ -7,6 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.core.fromnumeric import trace
 import seaborn as sns
+from ipywidgets import Output, Button
+import matplotlib.ticker as ticker
+
 
 from .typing import pathLike
 
@@ -251,7 +254,6 @@ def linefit_easy_fit(x,y,cp=0):
 
 
 
-from ipywidgets import Output, Button
 
 def pick_fc(main_imgs,
             plot_x,plot_y,
@@ -289,9 +291,6 @@ def pick_fc(main_imgs,
     
     cid = fig.canvas.mpl_connect('button_press_event', _onclick)
     
-    
-    
-
 
 def pick_data(main_img,
               sub_img):
@@ -326,16 +325,13 @@ def pick_data(main_img,
                 plot = ax_.plot(px,py,'wo')
                 rgb=ax_dict[ax_][1][py,px]
                 ax_.set_title('value:{}'.format(rgb))
-                print(rgb)
                 picked_data["{}_{}".format(py,px)].append(rgb)
                 picked_ax["{}_{}".format(py,px)].append(plot[0])
-                print(picked_data)
         elif ("{}_{}".format(py,px) in picked_data.keys()) and is_delete:
-            print(picked_data)
             del picked_data["{}_{}".format(py,px)]
             for ax_ in picked_ax["{}_{}".format(py,px)]:        
                 ax_.remove()
-            print(picked_data)
+        print(picked_data)
     is_delete:bool = False
     
     picked_data = {}
