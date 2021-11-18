@@ -248,3 +248,112 @@ def linefit_easy_fit(x,y,cp=0):
     b = y[cp:][-1] - x[cp:][-1] * a
     coeffs = [a, b]
     return coeffs
+
+
+
+from ipywidgets import Output, Button
+
+def pick_fc(main_imgs,
+            plot_x,plot_y,
+            zig=False):
+    """
+
+    Parameters
+    ----------
+    main_img : [type]
+        [img, img,...] or img
+        一番上の画像
+    plot_x,plot_y : [type]
+        プロットするデータ
+        [arr,arr,arr,...]
+    """
+    out = Output()
+    display(out)
+    @out.capture(clear_output=True)
+    def _onclick(event):
+        nonlocal ax
+        nonlocal last_ax
+        px, py = event.xdata, event.ydata
+        last_ax[0].remove()
+        if px != None and py!=None:
+            last_ax = ax[-1].plot(plot_x[int(px)+int(py)*20], plot_y[int(px)+int(py)*20])
+        ax[-1].set_title("x: {} , y: {}, num : {}".format(int(px), int(py), int(px)+int(py)*20))
+
+    if isinstance(main_imgs[0][0], float):
+        main_imgs = [main_imgs]
+
+    fig, ax = plt.subplots(1,1+len(main_imgs),figsize=(20,4))
+    for i, main_img in enumerate(main_imgs):
+        ax[i].imshow(main_img,cmap="Greys")
+    last_ax = ax[-1].plot(plot_x[0],plot_y[0])
+    
+    cid = fig.canvas.mpl_connect('button_press_event', _onclick)
+    
+    
+    
+
+
+def pick_data(main_img,
+              sub_img):
+    """
+
+    Parameters
+    ----------
+    main_img : [type]
+        [img, img,...]
+        一番上の画像
+    sub_img : [type]
+        順番んはmain_imgと同じ
+        [[img,img,img..,],[img,img,img,...]]
+    """
+    def delete_botton(event):            
+        nonlocal is_delete
+        is_delete = not is_delete
+    out = Output()
+    button = Button(description='delete')
+    button.on_click(delete_botton)
+    display(out, button)
+    @out.capture(clear_output=True)
+    def _onclick(event):
+        px, py = event.xdata, event.ydata
+        px = int(np.rint(px))
+        py = int(np.rint(py))
+        rgb = ax_dict[event.inaxes][1][py,px]
+        if not ("{}_{}".format(py,px) in list(picked_data.keys())) and not is_delete:    
+            picked_data["{}_{}".format(py,px)] = []
+            picked_ax["{}_{}".format(py,px)] = []
+            for ax_ in ax[:, ax_dict[event.inaxes][0]]:        
+                plot = ax_.plot(px,py,'wo')
+                rgb=ax_dict[ax_][1][py,px]
+                ax_.set_title('value:{}'.format(rgb))
+                print(rgb)
+                picked_data["{}_{}".format(py,px)].append(rgb)
+                picked_ax["{}_{}".format(py,px)].append(plot[0])
+                print(picked_data)
+        elif ("{}_{}".format(py,px) in picked_data.keys()) and is_delete:
+            print(picked_data)
+            del picked_data["{}_{}".format(py,px)]
+            for ax_ in picked_ax["{}_{}".format(py,px)]:        
+                ax_.remove()
+            print(picked_data)
+    is_delete:bool = False
+    
+    picked_data = {}
+    picked_ax   = {}
+    img_num=len(main_img)
+    img_types = len(sub_img)+1
+    
+    fig, ax = plt.subplots(img_types, img_num,figsize=(10,10))
+    ax_dict:dict = {}
+    
+    for i, img in enumerate(main_img):        
+        ax[0,i].imshow(img, interpolation='nearest',origin='lower',alpha=1)
+        ax_dict[ax[0,i]]=(i,img)
+    for i, imgs in enumerate(sub_img):
+        for j, img in enumerate(imgs):
+            ax[i+1, j].imshow(img, interpolation='nearest',origin='lower',alpha=1)
+            ax_dict[ax[i+1, j]]=(j, img)
+    
+    
+    cid = fig.canvas.mpl_connect('button_press_event', _onclick)
+    return picked_data
