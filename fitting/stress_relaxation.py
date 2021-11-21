@@ -275,21 +275,8 @@ class StressRelaxationPreprocessor(FCBaseProcessor):
             self.logger.info("{:>3}h {:>3}m {:>3}s".format(hour, minute, second))
         return end / len(e0_res_grad)
 
-    def load_data(self, fc_path, fc_type="fc", map_shape_square_strict=True,load_row_fc_kargs={}):
-        
-        fc_row_data = self.load_row_fc(fc_path=fc_path, 
-                                       map_shape_square_strict=map_shape_square_strict,
-                                       complement=True,
-                                       **load_row_fc_kargs)
-        
-        self.deflection, self.zsensor = self.split_def_z(fc_row_data)
-        self.deflection_row = self.deflection
-        del fc_row_data
-
-        self.deflection = self.set_deflectionbase()
-        self.delta = self.get_indentaion()
-        self.force = self.def2force()
-        
+    def load_data(self, fc_path,  map_shape_square_strict=True,load_row_fc_kargs={}):
+        super().load_data(fc_path, load_row_fc_kargs)
         # 応力緩和用
         # def_app, def_sr, def_ret       = self.sep_srdata(self.deflection)
         # z_app, z_sr, z_ret             = self.sep_srdata(self.zsensor)
