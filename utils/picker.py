@@ -256,8 +256,8 @@ def linefit_easy_fit(x,y,cp=0):
 
 
 def pick_fc(main_imgs,
-            plot_x,plot_y,
-            zig=False):
+            plot_x,plot_y
+            ):
     """
 
     Parameters
@@ -268,6 +268,9 @@ def pick_fc(main_imgs,
     plot_x,plot_y : [type]
         プロットするデータ
         [arr,arr,arr,...]
+    Note
+    ----
+    zigザぐの場合、plot_x, plot_yを対応させておく必要あり。
     """
     out = Output()
     display(out)
@@ -304,6 +307,13 @@ def pick_data(main_img,
     sub_img : [type]
         順番んはmain_imgと同じ
         [[img,img,img..,],[img,img,img,...]]
+        一種類でも
+        [[img,img,img..,]]
+    Return
+    ------
+    picked_data: dict[str, list[float,...]]
+        keyは、{y}_{x}のインデックス
+
     """
     def delete_botton(event):            
         nonlocal is_delete
@@ -349,7 +359,6 @@ def pick_data(main_img,
         for j, img in enumerate(imgs):
             ax[i+1, j].imshow(img, interpolation='nearest',origin='lower',alpha=1)
             ax_dict[ax[i+1, j]]=(j, img)
-    
     
     cid = fig.canvas.mpl_connect('button_press_event', _onclick)
     return picked_data
